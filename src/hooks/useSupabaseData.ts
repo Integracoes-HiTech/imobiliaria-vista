@@ -12,6 +12,7 @@ export const useProperties = (realtorId?: string) => {
   useEffect(() => {
     const fetchProperties = async () => {
       try {
+        console.log('🔄 useProperties - Iniciando busca de propriedades...', { realtorId });
         setLoading(true);
         setError(null);
         
@@ -19,10 +20,16 @@ export const useProperties = (realtorId?: string) => {
           ? await PropertyService.getPropertiesByRealtor(realtorId)
           : await PropertyService.getAllProperties();
         
+        console.log('✅ useProperties - Propriedades recebidas:', {
+          count: data.length,
+          realtorId,
+          firstProperty: data[0] ? { id: data[0].id, title: data[0].title } : null
+        });
+        
         setProperties(data);
       } catch (err) {
+        console.error('❌ useProperties - Erro ao buscar propriedades:', err);
         setError(err instanceof Error ? err.message : 'Erro ao carregar propriedades');
-        console.error('Erro ao buscar propriedades:', err);
       } finally {
         setLoading(false);
       }

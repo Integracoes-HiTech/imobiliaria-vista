@@ -18,52 +18,13 @@ import {
   MoreHorizontal
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-
-// Import das imagens estáticas para fallback
-import property1 from "@/assets/property1.jpg";
-import property2 from "@/assets/property2.jpg";
-import property3 from "@/assets/property3.jpg";
-import property4 from "@/assets/property4.jpg";
+import PropertyImage from "@/components/PropertyImage";
 
 const PropertiesManager = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const { properties, loading: propertiesLoading, error: propertiesError } = useProperties();
   const { toast } = useToast();
 
-  // Mapeamento de imagens estáticas
-  const imageMap: { [key: string]: string } = {
-    'property1.jpg': property1,
-    'property2.jpg': property2,
-    'property3.jpg': property3,
-    'property4.jpg': property4,
-  };
-
-  // Função para gerar o caminho correto da imagem
-  const getImageSrc = (imageName: string) => {
-    console.log('PropertiesManager - Processando imagem:', imageName);
-    
-    // Se já é uma URL completa (Supabase Storage ou externa), retorna como está
-    if (imageName.startsWith('http') || imageName.startsWith('https') || imageName.startsWith('blob:')) {
-      console.log('PropertiesManager - URL completa detectada:', imageName);
-      return imageName;
-    }
-    
-    // Se é um nome de arquivo conhecido, retorna a imagem importada
-    if (imageMap[imageName]) {
-      console.log('PropertiesManager - Imagem estática encontrada:', imageName);
-      return imageMap[imageName];
-    }
-    
-    // Se parece ser um caminho do Supabase Storage, retorna como está
-    if (imageName.includes('/') && !imageName.includes('\\')) {
-      console.log('PropertiesManager - Caminho do Supabase detectado:', imageName);
-      return imageName;
-    }
-    
-    // Fallback para property1 se não encontrar
-    console.log('PropertiesManager - Usando imagem padrão para:', imageName);
-    return property1;
-  };
 
   const filteredProperties = properties.filter(property =>
     property.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -165,14 +126,10 @@ const PropertiesManager = () => {
                     <TableRow key={property.id}>
                       <TableCell className="font-medium">
                         <div className="flex items-center space-x-3">
-                          <img
-                            src={getImageSrc(property.images[0] || 'property1.jpg')}
+                          <PropertyImage
+                            imageName={property.images[0] || 'property1.jpg'}
                             alt={property.title}
                             className="w-12 h-12 rounded-lg object-cover"
-                            onError={(e) => {
-                              // Fallback para imagem padrão se não conseguir carregar
-                              (e.target as HTMLImageElement).src = property1;
-                            }}
                           />
                           <div>
                             <p className="font-medium">{property.title}</p>

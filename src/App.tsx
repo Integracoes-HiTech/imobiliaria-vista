@@ -22,6 +22,7 @@ import RealtorResetPassword from "./pages/realtor/RealtorResetPassword";
 import NotFound from "./pages/NotFound";
 import DatabaseTest from "./components/DatabaseTest";
 import LoginTest from "./components/LoginTest";
+import DatabaseDebug from "./components/DatabaseDebug";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +40,7 @@ const App = () => (
             <Route path="/search" element={<AdvancedSearch />} />
             <Route path="/test-db" element={<DatabaseTest />} />
             <Route path="/test-login" element={<LoginTest />} />
+            <Route path="/debug-db" element={<DatabaseDebug />} />
             
             {/* Admin Routes */}
             <Route path="/admin/login" element={<AdminLogin />} />
@@ -54,6 +56,7 @@ const App = () => (
             <Route path="/realtor/dashboard" element={<RealtorDashboard />} />
             <Route path="/realtor/properties" element={<RealtorPropertiesManager />} />
             <Route path="/realtor/properties/new" element={<RealtorPropertyForm />} />
+            <Route path="/realtor/properties/edit/:id" element={<RealtorPropertyForm />} />
             <Route path="/realtor/reset-password" element={<RealtorResetPassword />} />
             
             {/* Catch-all route */}

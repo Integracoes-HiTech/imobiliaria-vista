@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useProperties, useRealtors } from "@/hooks/useSupabaseData";
+import { PropertyService } from "@/services/propertyService";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { 
@@ -17,6 +18,7 @@ import {
   MoreHorizontal
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import PropertyImage from "@/components/PropertyImage";
 
 const RealtorPropertiesManager = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -25,6 +27,10 @@ const RealtorPropertiesManager = () => {
   
   // Buscar propriedades do corretor logado
   const { properties: realtorProperties, loading: propertiesLoading, error: propertiesError } = useProperties(user?.id);
+
+  // Debug: mostrar informações do usuário e propriedades
+  console.log('RealtorPropertiesManager - Usuário logado:', user);
+  console.log('RealtorPropertiesManager - Propriedades do corretor:', realtorProperties);
 
   const filteredProperties = realtorProperties.filter(property =>
     property.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -44,23 +50,40 @@ const RealtorPropertiesManager = () => {
     }
   };
 
-  const handleViewProperty = (id: number) => {
+  const handleViewProperty = (id: string) => {
     window.open(`/property/${id}`, '_blank');
   };
 
-  const handleEditProperty = (id: number) => {
-    toast({
-      title: "Funcionalidade em desenvolvimento",
-      description: "A edição de imóveis estará disponível em breve.",
-    });
+  const handleEditProperty = (id: string) => {
+    // Navegar para a página de edição
+    window.location.href = `/realtor/properties/edit/${id}`;
   };
 
-  const handleDeleteProperty = (propertyName: string) => {
-    toast({
-      title: "Imóvel removido",
-      description: `${propertyName} foi removido da sua carteira.`,
-      variant: "destructive",
-    });
+  const handleDeleteProperty = async (propertyId: string, propertyName: string) => {
+    if (window.confirm(`Tem certeza que deseja excluir o imóvel "${propertyName}"? Esta ação não pode ser desfeita.`)) {
+      try {
+        const success = await PropertyService.deleteProperty(propertyId);
+        
+        if (success) {
+          toast({
+            title: "Imóvel excluído",
+            description: `${propertyName} foi removido da sua carteira.`,
+            variant: "destructive",
+          });
+          // Recarregar a página para atualizar a lista
+          window.location.reload();
+        } else {
+          throw new Error("Falha ao excluir imóvel");
+        }
+      } catch (error) {
+        console.error("Erro ao excluir imóvel:", error);
+        toast({
+          title: "Erro ao excluir imóvel",
+          description: "Ocorreu um erro ao tentar excluir o imóvel. Tente novamente.",
+          variant: "destructive",
+        });
+      }
+    }
   };
 
   return (
@@ -107,25 +130,40 @@ const RealtorPropertiesManager = () => {
           </CardHeader>
           
           <CardContent>
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Preço</TableHead>
-                    <TableHead>Localização</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Data Cadastro</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredProperties.map((property) => (
+            {propertiesLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                  <p className="text-muted-foreground">Carregando seus imóveis...</p>
+                </div>
+              </div>
+            ) : propertiesError ? (
+              <div className="text-center py-12">
+                <p className="text-lg text-red-600 mb-4">Erro ao carregar imóveis: {propertiesError}</p>
+                <Button onClick={() => window.location.reload()} className="font-luxury">
+                  Tentar Novamente
+                </Button>
+              </div>
+            ) : (
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>Preço</TableHead>
+                      <TableHead>Localização</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Data Cadastro</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredProperties.map((property) => (
                     <TableRow key={property.id}>
                       <TableCell className="font-medium">
                         <div className="flex items-center space-x-3">
-                          <img
-                            src={property.images[0]}
+                          <PropertyImage
+                            imageName={property.images[0] || 'property1.jpg'}
                             alt={property.title}
                             className="w-12 h-12 rounded-lg object-cover"
                           />
@@ -164,7 +202,7 @@ const RealtorPropertiesManager = () => {
                             </DropdownMenuItem>
                             <DropdownMenuItem 
                               className="text-destructive"
-                              onClick={() => handleDeleteProperty(property.title)}
+                              onClick={() => handleDeleteProperty(property.id, property.title)}
                             >
                               Excluir
                             </DropdownMenuItem>
@@ -172,12 +210,13 @@ const RealtorPropertiesManager = () => {
                         </DropdownMenu>
                       </TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
 
-            {filteredProperties.length === 0 && (
+            {!propertiesLoading && !propertiesError && filteredProperties.length === 0 && (
               <div className="text-center py-8">
                 <Building className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold mb-2">Nenhum imóvel encontrado</h3>

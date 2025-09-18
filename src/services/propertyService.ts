@@ -34,7 +34,12 @@ export interface UpdatePropertyData extends Partial<CreatePropertyData> {
 
 export class PropertyService {
   static async getAllProperties(): Promise<Property[]> {
+    const startTime = Date.now();
     try {
+      console.log('🔍 PropertyService - Iniciando busca de propriedades...');
+      console.log('🔍 PropertyService - Supabase client:', !!supabase);
+      console.log('🔍 PropertyService - Timestamp:', new Date().toISOString());
+      
       const { data, error } = await supabase
         .from('properties')
         .select(`
@@ -47,13 +52,54 @@ export class PropertyService {
         `)
         .order('created_at', { ascending: false });
 
+      const duration = Date.now() - startTime;
+      console.log('🔍 PropertyService - Resposta do Supabase:', { 
+        dataLength: data?.length || 0, 
+        error: error?.message || 'Nenhum erro',
+        hasData: !!data,
+        duration: `${duration}ms`,
+        timestamp: new Date().toISOString()
+      });
+
       if (error) {
+        console.error('❌ PropertyService - Erro do Supabase:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
         throw new Error(error.message);
       }
 
-      return data.map(this.mapDatabaseToProperty);
+      if (!data || data.length === 0) {
+        console.warn('⚠️ PropertyService - Nenhuma propriedade encontrada no banco');
+        return [];
+      }
+
+      console.log('🔍 PropertyService - Dados brutos do banco:', {
+        firstRecord: data[0],
+        hasUsers: !!data[0]?.users,
+        usersData: data[0]?.users
+      });
+
+      const mappedData = data.map(this.mapDatabaseToProperty);
+      console.log('✅ PropertyService - Propriedades mapeadas:', {
+        count: mappedData.length,
+        duration: `${Date.now() - startTime}ms`,
+        sample: mappedData[0] ? {
+          id: mappedData[0].id,
+          title: mappedData[0].title,
+          category: mappedData[0].category,
+          realtor: mappedData[0].realtor
+        } : null
+      });
+      return mappedData;
     } catch (error) {
-      console.error('Erro ao buscar propriedades:', error);
+      console.error('❌ PropertyService - Erro ao buscar propriedades:', {
+        error: error instanceof Error ? error.message : error,
+        duration: `${Date.now() - startTime}ms`,
+        timestamp: new Date().toISOString()
+      });
       return [];
     }
   }
@@ -327,9 +373,9 @@ export class PropertyService {
       state: data.state,
       images: data.images,
       realtor: {
-        id: data.users.id,
-        name: data.users.name,
-        phone: data.users.phone,
+        id: data.users?.id || '',
+        name: data.users?.name || 'Corretor não encontrado',
+        phone: data.users?.phone || '',
       },
       status: data.status,
       category: data.category || 'apartamento',
