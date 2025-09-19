@@ -52,7 +52,7 @@ const LoginTest = () => {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="admin@mgimoveis.com"
+            placeholder="Digite seu email"
           />
         </div>
         
@@ -62,7 +62,7 @@ const LoginTest = () => {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="admin123"
+            placeholder="Digite sua senha"
           />
         </div>
 
@@ -103,11 +103,6 @@ const LoginTest = () => {
           </div>
         )}
 
-        <div className="text-xs text-muted-foreground space-y-1">
-          <p><strong>Credenciais de teste:</strong></p>
-          <p>Admin: admin@mgimoveis.com / admin123</p>
-          <p>Corretor: ana.silva@mgimoveis.com / ana123</p>
-        </div>
       </CardContent>
     </Card>
   );

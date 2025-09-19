@@ -21,7 +21,8 @@ import {
   X,
   Upload,
   Camera,
-  Home as HomeIcon
+  Home as HomeIcon,
+  Search
 } from 'lucide-react';
 import { PropertyService, UpdatePropertyData } from '@/services/propertyService';
 import { ImageService } from '@/services/imageService';
@@ -48,6 +49,7 @@ const EditPropertyModalRealtor: React.FC<EditPropertyModalRealtorProps> = ({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [isUploadingImages, setIsUploadingImages] = useState(false);
+  const [isSearchingCep, setIsSearchingCep] = useState(false);
   const [registrationDate, setRegistrationDate] = useState<Date>();
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [uploadedImageUrls, setUploadedImageUrls] = useState<string[]>([]);
@@ -64,11 +66,48 @@ const EditPropertyModalRealtor: React.FC<EditPropertyModalRealtorProps> = ({
     bedrooms: '',
     bathrooms: '',
     area: '',
-    parking: ''
+    parking: '',
+    // Campos de endereço editáveis
+    zipCode: '',
+    state: '',
+    city: '',
+    neighborhood: '',
+    street: ''
   });
 
   // Armazenar dados originais para comparação
   const [originalData, setOriginalData] = useState<any>(null);
+
+  // Função para buscar CEP na API ViaCEP
+  const buscarCep = async (cep: string) => {
+    // Remove traços e espaços
+    cep = cep.replace(/\D/g, "");
+
+    // Validação: CEP precisa ter 8 dígitos numéricos
+    if (!/^[0-9]{8}$/.test(cep)) {
+      throw new Error("Por favor, informe um CEP válido com 8 dígitos.");
+    }
+
+    const url = `https://viacep.com.br/ws/${cep}/json/`;
+
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error("Erro ao consultar o ViaCEP");
+    }
+
+    const data = await response.json();
+
+    if (data.erro) {
+      throw new Error("CEP não encontrado!");
+    }
+
+    return {
+      cidade: data.localidade,
+      bairro: data.bairro,
+      estado: data.uf,
+      rua: data.logradouro
+    };
+  };
 
   useEffect(() => {
     if (isOpen && propertyId) {
@@ -116,7 +155,13 @@ const EditPropertyModalRealtor: React.FC<EditPropertyModalRealtorProps> = ({
         bedrooms: property.features?.bedrooms?.toString() || '',
         bathrooms: property.features?.bathrooms?.toString() || '',
         area: property.features?.area?.toString() || '',
-        parking: property.features?.parking?.toString() || '0'
+        parking: property.features?.parking?.toString() || '0',
+        // Campos de endereço editáveis
+        zipCode: property.address?.zip_code || '',
+        state: property.state || '',
+        city: property.address?.city || '',
+        neighborhood: property.address?.neighborhood || '',
+        street: property.address?.street || ''
       });
 
       // Configurar data de cadastro
@@ -141,7 +186,46 @@ const EditPropertyModalRealtor: React.FC<EditPropertyModalRealtorProps> = ({
   };
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    // Formatação automática do CEP
+    if (field === "zipCode") {
+      const cepNumerico = value.replace(/\D/g, '');
+      const cepFormatado = cepNumerico.replace(/(\d{5})(\d{3})/, '$1-$2');
+      setFormData(prev => ({ ...prev, [field]: cepFormatado }));
+      
+      // Buscar CEP quando tiver 8 dígitos
+      if (cepNumerico.length === 8) {
+        setIsSearchingCep(true);
+        
+        buscarCep(cepNumerico)
+          .then((endereco) => {
+            setFormData(prev => ({
+              ...prev,
+              state: endereco.estado,
+              city: endereco.cidade,
+              neighborhood: endereco.bairro,
+              street: endereco.rua
+            }));
+            
+            toast({
+              title: "CEP encontrado!",
+              description: `Endereço preenchido: ${endereco.rua}, ${endereco.bairro}, ${endereco.cidade}/${endereco.estado}`,
+            });
+          })
+          .catch((error) => {
+            console.error("Erro ao buscar CEP:", error);
+            toast({
+              title: "Erro ao buscar CEP",
+              description: error.message,
+              variant: "destructive",
+            });
+          })
+          .finally(() => {
+            setIsSearchingCep(false);
+          });
+      }
+    } else {
+      setFormData(prev => ({ ...prev, [field]: value }));
+    }
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -333,19 +417,25 @@ const EditPropertyModalRealtor: React.FC<EditPropertyModalRealtorProps> = ({
         });
       }
 
-      // Preparar dados para atualização - apenas campos permitidos para corretor
+      // Preparar dados para atualização - campos permitidos para corretor incluindo endereço
       const updateData: UpdatePropertyData = {
         id: propertyId,
         title: formData.name.trim(),
         description: formData.description.trim(),
         price: parseFloat(formData.price.replace(/[^\d,]/g, '').replace(',', '.')),
-        location: originalData?.location || '', // Manter original
-        state: originalData?.state || '', // Manter original
+        location: `${formData.city}, ${formData.state}`, // Atualizar com dados editáveis
+        state: formData.state, // Permitir edição do estado
         images: imageUrls.length > 0 ? [...uploadedImageUrls, ...imageUrls] : uploadedImageUrls,
         realtorId: originalData?.realtorId || '', // Manter original - corretor não pode alterar
         status: formData.status as 'available' | 'negotiating' | 'sold',
         category: formData.category as 'prontos' | 'na_planta' | 'apartamento' | 'casa' | 'cobertura' | 'comercial' | 'condominio' | 'loteamento',
-        address: originalData?.address || {}, // Manter original
+        address: {
+          street: formData.street,
+          neighborhood: formData.neighborhood,
+          city: formData.city,
+          state: formData.state,
+          zipCode: formData.zipCode
+        }, // Permitir edição do endereço
         features: {
           bedrooms: parseInt(formData.bedrooms),
           bathrooms: parseInt(formData.bathrooms),
@@ -490,35 +580,47 @@ const EditPropertyModalRealtor: React.FC<EditPropertyModalRealtorProps> = ({
               </div>
             </div>
 
-            {/* Address Section - Somente Leitura para Corretor */}
-            {originalData && (
-              <div className="space-y-4">
-                <div className="flex items-center space-x-2 mb-4">
-                  <MapPin className="w-5 h-5 text-primary" />
-                  <h3 className="text-lg font-semibold">Endereço</h3>
-                  <Badge variant="secondary" className="ml-2">Somente Leitura</Badge>
-                </div>
+            {/* Address Section - Editável para Corretor */}
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2 mb-4">
+                <MapPin className="w-5 h-5 text-primary" />
+                <h3 className="text-lg font-semibold">Endereço</h3>
+              </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="zipCode">CEP</Label>
-                  <Input
-                    id="zipCode"
-                    value={originalData?.address?.zipCode || ''}
-                    placeholder="00000-000"
-                    disabled
-                    className="bg-muted"
-                  />
+                  <div className="relative">
+                    <Input
+                      id="zipCode"
+                      value={formData.zipCode}
+                      onChange={(e) => handleInputChange("zipCode", e.target.value)}
+                      placeholder="00000-000"
+                      maxLength={9}
+                      disabled={saving}
+                      className="pr-10"
+                    />
+                    {isSearchingCep && (
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                        <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                      </div>
+                    )}
+                    {!isSearchingCep && formData.zipCode.length === 9 && (
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                        <Search className="w-4 h-4 text-muted-foreground" />
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div>
                   <Label htmlFor="state">Estado</Label>
                   <Input
                     id="state"
-                    value={originalData?.state || ''}
+                    value={formData.state}
+                    onChange={(e) => handleInputChange("state", e.target.value)}
                     placeholder="SP"
-                    disabled
-                    className="bg-muted"
+                    disabled={saving}
                   />
                 </div>
 
@@ -526,10 +628,10 @@ const EditPropertyModalRealtor: React.FC<EditPropertyModalRealtorProps> = ({
                   <Label htmlFor="city">Cidade</Label>
                   <Input
                     id="city"
-                    value={originalData?.address?.city || ''}
+                    value={formData.city}
+                    onChange={(e) => handleInputChange("city", e.target.value)}
                     placeholder="São Paulo"
-                    disabled
-                    className="bg-muted"
+                    disabled={saving}
                   />
                 </div>
 
@@ -537,10 +639,10 @@ const EditPropertyModalRealtor: React.FC<EditPropertyModalRealtorProps> = ({
                   <Label htmlFor="neighborhood">Bairro</Label>
                   <Input
                     id="neighborhood"
-                    value={originalData?.address?.neighborhood || ''}
+                    value={formData.neighborhood}
+                    onChange={(e) => handleInputChange("neighborhood", e.target.value)}
                     placeholder="Centro"
-                    disabled
-                    className="bg-muted"
+                    disabled={saving}
                   />
                 </div>
 
@@ -548,15 +650,14 @@ const EditPropertyModalRealtor: React.FC<EditPropertyModalRealtorProps> = ({
                   <Label htmlFor="street">Rua</Label>
                   <Input
                     id="street"
-                    value={originalData?.address?.street || ''}
+                    value={formData.street}
+                    onChange={(e) => handleInputChange("street", e.target.value)}
                     placeholder="Rua das Flores, 123"
-                    disabled
-                    className="bg-muted"
+                    disabled={saving}
                   />
                 </div>
               </div>
-              </div>
-            )}
+            </div>
 
             {/* Características do Imóvel */}
             <div className="space-y-4">

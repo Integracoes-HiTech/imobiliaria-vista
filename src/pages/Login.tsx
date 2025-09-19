@@ -154,14 +154,6 @@ const Login = () => {
               </Button>
             </form>
 
-            {/* Informações de Teste */}
-            <div className="mt-6 p-4 bg-muted/50 rounded-lg">
-              <h4 className="text-sm font-semibold mb-2">Credenciais de Teste:</h4>
-              <div className="text-xs space-y-1 text-muted-foreground">
-                <p><strong>Admin:</strong> admin@mgimoveis.com / admin123</p>
-                <p><strong>Corretor:</strong> ana.silva@mgimoveis.com / ana123</p>
-              </div>
-            </div>
           </CardContent>
         </Card>
       </div>

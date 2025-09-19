@@ -183,14 +183,6 @@ const DatabaseTest = () => {
           </div>
         )}
 
-        <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-          <h3 className="font-semibold text-blue-800 mb-2">Credenciais de Teste:</h3>
-          <div className="space-y-1 text-sm text-blue-700">
-            <p><strong>Admin:</strong> admin@mgimoveis.com / admin123</p>
-            <p><strong>Corretor:</strong> ana.silva@mgimoveis.com / ana123</p>
-            <p><strong>Corretor:</strong> carlos.mendes@mgimoveis.com / carlos123</p>
-          </div>
-        </div>
       </CardContent>
     </Card>
   );

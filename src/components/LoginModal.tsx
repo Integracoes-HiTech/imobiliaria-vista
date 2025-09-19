@@ -146,11 +146,6 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
           </div>
         </form>
         
-        <div className="text-center text-sm text-muted-foreground">
-          <p>Credenciais de teste:</p>
-          <p><strong>Admin:</strong> admin@mgimoveis.com / admin123</p>
-          <p><strong>Corretor:</strong> ana.silva@mgimoveis.com / ana123</p>
-        </div>
       </DialogContent>
     </Dialog>
   );
