@@ -16,7 +16,7 @@ export const useProperties = (realtorId?: string) => {
         setLoading(true);
         setError(null);
         
-        const data = realtorId 
+        const data = realtorId && realtorId.trim() !== ''
           ? await PropertyService.getPropertiesByRealtor(realtorId)
           : await PropertyService.getAllProperties();
         
@@ -43,7 +43,7 @@ export const useProperties = (realtorId?: string) => {
       setLoading(true);
       setError(null);
       
-      const data = realtorId 
+      const data = realtorId && realtorId.trim() !== ''
         ? await PropertyService.getPropertiesByRealtor(realtorId)
         : await PropertyService.getAllProperties();
       

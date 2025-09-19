@@ -21,6 +21,14 @@ const Home = () => {
   
   // SEMPRE mostrar apenas propriedades disponíveis no carrossel da página principal
   const availableProperties = allProperties.filter(p => p.status === "available");
+  
+  // Debug: verificar quantos imóveis disponíveis temos
+  console.log('🏠 Home - Debug imóveis:', {
+    totalProperties: allProperties.length,
+    availableProperties: availableProperties.length,
+    allStatuses: allProperties.map(p => ({ id: p.id, title: p.title, status: p.status })),
+    availableOnly: availableProperties.map(p => ({ id: p.id, title: p.title, status: p.status }))
+  });
   const [filteredProperties, setFilteredProperties] = useState<typeof availableProperties>([]);
   const [currentCarouselIndex, setCurrentCarouselIndex] = useState(0);
   const [touchStart, setTouchStart] = useState<number | null>(null);

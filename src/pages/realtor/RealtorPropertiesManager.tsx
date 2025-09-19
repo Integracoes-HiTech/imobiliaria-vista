@@ -15,11 +15,12 @@ import {
   Search, 
   Eye,
   Building,
-  MoreHorizontal
+  MoreHorizontal,
+  ArrowLeft
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import PropertyImage from "@/components/PropertyImage";
-import EditPropertyModal from "@/components/modals/EditPropertyModal";
+import EditPropertyModalRealtor from "@/components/modals/EditPropertyModalRealtor";
 
 const RealtorPropertiesManager = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -32,13 +33,16 @@ const RealtorPropertiesManager = () => {
   const [selectedPropertyTitle, setSelectedPropertyTitle] = useState("");
   
   // Buscar propriedades do corretor logado
-  const { properties: realtorProperties, loading: propertiesLoading, error: propertiesError, refreshProperties } = useProperties(user?.id);
+  const { properties: realtorProperties, loading: propertiesLoading, error: propertiesError, refreshProperties } = useProperties(user?.id || '');
 
   // Debug: mostrar informações do usuário e propriedades
   console.log('RealtorPropertiesManager - Usuário logado:', user);
+  console.log('RealtorPropertiesManager - ID do usuário:', user?.id);
   console.log('RealtorPropertiesManager - Propriedades do corretor:', realtorProperties);
+  console.log('RealtorPropertiesManager - Loading:', propertiesLoading);
+  console.log('RealtorPropertiesManager - Error:', propertiesError);
 
-  const filteredProperties = realtorProperties.filter(property =>
+  const filteredProperties = (realtorProperties || []).filter(property =>
     property.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     property.location.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -104,6 +108,24 @@ const RealtorPropertiesManager = () => {
     }
   };
 
+  // Verificar se há usuário logado
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="container mx-auto px-4 py-8">
+          <div className="text-center py-12">
+            <h2 className="text-2xl font-bold mb-4">Acesso Negado</h2>
+            <p className="text-muted-foreground mb-4">Você precisa estar logado para acessar esta página.</p>
+            <Button asChild>
+              <Link to="/realtor/login">Fazer Login</Link>
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -118,12 +140,20 @@ const RealtorPropertiesManager = () => {
               {filteredProperties.length} imóveis encontrados
             </p>
           </div>
-          <Button asChild>
-            <Link to="/realtor/properties/new">
-              <Plus className="w-4 h-4 mr-2" />
-              Cadastrar Imóvel
-            </Link>
-          </Button>
+          <div className="flex gap-3">
+            <Button variant="outline" asChild>
+              <Link to="/realtor/dashboard">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Voltar ao Dashboard
+              </Link>
+            </Button>
+            <Button asChild>
+              <Link to="/realtor/properties/new">
+                <Plus className="w-4 h-4 mr-2" />
+                Cadastrar Imóvel
+              </Link>
+            </Button>
+          </div>
         </div>
 
         <Card>
@@ -254,8 +284,8 @@ const RealtorPropertiesManager = () => {
           </CardContent>
         </Card>
 
-        {/* Modal de Edição */}
-        <EditPropertyModal
+        {/* Modal de Edição - Versão Corretor */}
+        <EditPropertyModalRealtor
           isOpen={isEditModalOpen}
           onClose={handleEditModalClose}
           propertyId={selectedPropertyId}

@@ -52,6 +52,12 @@ export class PropertyService {
         `)
         .is('deleted_at', null) // Apenas propriedades não deletadas
         .order('created_at', { ascending: false });
+        
+      console.log('🔍 PropertyService - Query executada:', {
+        table: 'properties',
+        filters: 'deleted_at IS NULL',
+        orderBy: 'created_at DESC'
+      });
 
       const duration = Date.now() - startTime;
       console.log('🔍 PropertyService - Resposta do Supabase:', { 
@@ -91,8 +97,15 @@ export class PropertyService {
           id: mappedData[0].id,
           title: mappedData[0].title,
           category: mappedData[0].category,
+          status: mappedData[0].status,
           realtor: mappedData[0].realtor
-        } : null
+        } : null,
+        statusBreakdown: {
+          available: mappedData.filter(p => p.status === 'available').length,
+          negotiating: mappedData.filter(p => p.status === 'negotiating').length,
+          sold: mappedData.filter(p => p.status === 'sold').length
+        },
+        allProperties: mappedData.map(p => ({ id: p.id, title: p.title, status: p.status }))
       });
       return mappedData;
     } catch (error) {
@@ -107,6 +120,13 @@ export class PropertyService {
 
   static async getPropertiesByRealtor(realtorId: string): Promise<Property[]> {
     try {
+      if (!realtorId || realtorId.trim() === '') {
+        console.log('⚠️ PropertyService.getPropertiesByRealtor - RealtorId vazio ou inválido');
+        return [];
+      }
+      
+      console.log('🔄 PropertyService.getPropertiesByRealtor - Buscando propriedades para:', realtorId);
+      
       const { data, error } = await supabase
         .from('properties')
         .select(`
@@ -122,9 +142,12 @@ export class PropertyService {
         .order('created_at', { ascending: false });
 
       if (error) {
+        console.error('❌ PropertyService.getPropertiesByRealtor - Erro:', error);
         throw new Error(error.message);
       }
 
+      console.log('✅ PropertyService.getPropertiesByRealtor - Propriedades encontradas:', data.length);
+      
       return data.map(this.mapDatabaseToProperty);
     } catch (error) {
       console.error('Erro ao buscar propriedades do corretor:', error);
@@ -174,6 +197,9 @@ export class PropertyService {
 
   static async createProperty(propertyData: CreatePropertyData): Promise<Property | null> {
     try {
+      console.log('🏠 PropertyService.createProperty - Dados recebidos:', propertyData);
+      console.log('🏠 PropertyService.createProperty - RealtorId:', propertyData.realtorId);
+      
       const { data, error } = await supabase
         .from('properties')
         .insert({
@@ -203,13 +229,19 @@ export class PropertyService {
         .single();
 
       if (error) {
+        console.error('❌ PropertyService.createProperty - Erro no insert:', error);
         throw new Error(error.message);
       }
+
+      console.log('✅ PropertyService.createProperty - Imóvel criado com sucesso:', data);
 
       // Criar entrada no histórico de status
       await this.addStatusHistory(data.id, data.status, 'Sistema', 'Propriedade criada');
 
-      return this.mapDatabaseToProperty(data);
+      const mappedProperty = this.mapDatabaseToProperty(data);
+      console.log('✅ PropertyService.createProperty - Propriedade mapeada:', mappedProperty);
+      
+      return mappedProperty;
     } catch (error) {
       console.error('Erro ao criar propriedade:', error);
       throw error;
@@ -218,6 +250,21 @@ export class PropertyService {
 
   static async updateProperty(propertyData: UpdatePropertyData): Promise<Property | null> {
     try {
+      console.log('🔄 PropertyService.updateProperty - Dados recebidos:', propertyData);
+      
+      // Buscar o status atual ANTES do update para comparar
+      let oldStatus: string | null = null;
+      if (propertyData.status) {
+        const { data: currentData } = await supabase
+          .from('properties')
+          .select('status')
+          .eq('id', propertyData.id)
+          .single();
+        
+        oldStatus = currentData?.status || null;
+        console.log('📊 PropertyService.updateProperty - Status atual:', oldStatus, 'Novo status:', propertyData.status);
+      }
+      
       const updateData: any = {
         updated_at: new Date().toISOString(),
       };
@@ -233,11 +280,14 @@ export class PropertyService {
       if (propertyData.state) updateData.state = propertyData.state;
       if (propertyData.images) updateData.images = propertyData.images;
       if (propertyData.realtorId) updateData.realtor_id = propertyData.realtorId;
+      if (propertyData.status) updateData.status = propertyData.status; // CORRIGIDO: Adicionar status
       if (propertyData.category) updateData.category = propertyData.category;
       if (propertyData.address) updateData.address = propertyData.address;
       if (propertyData.features) updateData.features = propertyData.features;
       if (propertyData.registrationDate) updateData.registration_date = propertyData.registrationDate;
       if (propertyData.internalNotes !== undefined) updateData.internal_notes = propertyData.internalNotes;
+
+      console.log('💾 PropertyService.updateProperty - Dados para update:', updateData);
 
       const { data, error } = await supabase
         .from('properties')
@@ -254,7 +304,21 @@ export class PropertyService {
         .single();
 
       if (error) {
+        console.error('❌ PropertyService.updateProperty - Erro no update:', error);
         throw new Error(error.message);
+      }
+
+      console.log('✅ PropertyService.updateProperty - Update realizado com sucesso:', data);
+
+      // Criar entrada no histórico de status se o status mudou
+      if (propertyData.status && oldStatus && oldStatus !== propertyData.status) {
+        console.log('📝 PropertyService.updateProperty - Status mudou de', oldStatus, 'para', propertyData.status);
+        try {
+          await this.addStatusHistory(data.id, propertyData.status, 'Sistema', `Status alterado de ${oldStatus} para ${propertyData.status}`);
+        } catch (historyError) {
+          console.error('⚠️ PropertyService.updateProperty - Erro ao criar histórico:', historyError);
+          // Não falha o update principal se o histórico der erro
+        }
       }
 
       return this.mapDatabaseToProperty(data);
@@ -401,7 +465,14 @@ export class PropertyService {
     notes?: string
   ) {
     try {
-      await supabase
+      console.log('📝 PropertyService.addStatusHistory - Criando histórico:', {
+        propertyId,
+        status,
+        changedBy,
+        notes
+      });
+      
+      const { data, error } = await supabase
         .from('property_status_history')
         .insert({
           property_id: propertyId,
@@ -409,9 +480,20 @@ export class PropertyService {
           changed_by: changedBy,
           changed_at: new Date().toISOString(),
           notes,
-        });
+        })
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('❌ PropertyService.addStatusHistory - Erro:', error);
+        throw error;
+      }
+      
+      console.log('✅ PropertyService.addStatusHistory - Histórico criado:', data);
+      return data;
     } catch (error) {
-      console.error('Erro ao adicionar histórico de status:', error);
+      console.error('❌ PropertyService.addStatusHistory - Erro ao adicionar histórico:', error);
+      throw error;
     }
   }
 

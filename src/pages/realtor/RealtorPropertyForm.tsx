@@ -363,12 +363,15 @@ const RealtorPropertyForm = () => {
             title: "Imóvel cadastrado com sucesso!",
             description: `O imóvel "${result.title}" foi adicionado à sua carteira.`,
           });
+          
+          // Aguardar um pouco para o toast aparecer antes de redirecionar
+          setTimeout(() => {
+            navigate("/realtor/properties");
+          }, 1000);
         } else {
           throw new Error("Falha ao criar imóvel");
         }
       }
-      
-      navigate("/realtor/properties");
     } catch (error) {
       console.error("Erro ao cadastrar imóvel:", error);
       toast({

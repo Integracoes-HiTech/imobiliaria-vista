@@ -17,6 +17,15 @@ const Properties = () => {
   
   // For non-logged users, show only available properties
   const availableProperties = user ? allProperties : allProperties.filter(p => p.status === "available");
+  
+  // Debug: verificar quantos imóveis disponíveis temos
+  console.log('🏘️ Properties - Debug imóveis:', {
+    user: user ? 'Logado' : 'Não logado',
+    totalProperties: allProperties.length,
+    availableProperties: availableProperties.length,
+    allStatuses: allProperties.map(p => ({ id: p.id, title: p.title, status: p.status })),
+    availableOnly: availableProperties.map(p => ({ id: p.id, title: p.title, status: p.status }))
+  });
   const [filteredProperties, setFilteredProperties] = useState(availableProperties);
 
   // Função para aplicar filtros baseados nos parâmetros da URL
