@@ -19,11 +19,17 @@ import {
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import PropertyImage from "@/components/PropertyImage";
+import EditPropertyModal from "@/components/modals/EditPropertyModal";
 
 const RealtorPropertiesManager = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
   const { user } = useAuth();
+  
+  // Estados para o modal de edição
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedPropertyId, setSelectedPropertyId] = useState("");
+  const [selectedPropertyTitle, setSelectedPropertyTitle] = useState("");
   
   // Buscar propriedades do corretor logado
   const { properties: realtorProperties, loading: propertiesLoading, error: propertiesError, refreshProperties } = useProperties(user?.id);
@@ -54,20 +60,33 @@ const RealtorPropertiesManager = () => {
     window.open(`/property/${id}`, '_blank');
   };
 
-  const handleEditProperty = (id: string) => {
-    // Navegar para a página de edição
-    window.location.href = `/realtor/properties/edit/${id}`;
+  const handleEditProperty = (id: string, title: string) => {
+    setSelectedPropertyId(id);
+    setSelectedPropertyTitle(title);
+    setIsEditModalOpen(true);
   };
 
+  const handleEditModalClose = () => {
+    setIsEditModalOpen(false);
+    setSelectedPropertyId("");
+    setSelectedPropertyTitle("");
+  };
+
+  const handleEditSuccess = () => {
+    refreshProperties();
+    handleEditModalClose();
+  };
+
+
   const handleDeleteProperty = async (propertyId: string, propertyName: string) => {
-    if (window.confirm(`Tem certeza que deseja excluir o imóvel "${propertyName}"? O imóvel será removido da visualização mas mantido no sistema para preservar o histórico.`)) {
+    if (window.confirm(`Tem certeza que deseja excluir o imóvel "${propertyName}"?`)) {
       try {
         const success = await PropertyService.deleteProperty(propertyId);
         
         if (success) {
           toast({
             title: "Imóvel excluído",
-            description: `${propertyName} foi removido da sua carteira. A relação com o corretor foi preservada.`,
+            description: `${propertyName} foi removido da sua carteira.`,
           });
           // Atualizar a lista sem recarregar a página
           refreshProperties();
@@ -196,7 +215,7 @@ const RealtorPropertiesManager = () => {
                               <Eye className="mr-2 h-4 w-4" />
                               Ver Imóvel
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleEditProperty(property.id)}>
+                            <DropdownMenuItem onClick={() => handleEditProperty(property.id, property.title)}>
                               Editar
                             </DropdownMenuItem>
                             <DropdownMenuItem 
@@ -234,6 +253,15 @@ const RealtorPropertiesManager = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* Modal de Edição */}
+        <EditPropertyModal
+          isOpen={isEditModalOpen}
+          onClose={handleEditModalClose}
+          propertyId={selectedPropertyId}
+          propertyTitle={selectedPropertyTitle}
+          onSuccess={handleEditSuccess}
+        />
       </div>
     </div>
   );
