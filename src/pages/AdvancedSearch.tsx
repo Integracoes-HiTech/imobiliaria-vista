@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import Header from "@/components/Header";
+import PublicHeader from "@/components/PublicHeader";
 import Footer from "@/components/Footer";
 import PropertyCard from "@/components/PropertyCard";
 import { Button } from "@/components/ui/button";
@@ -214,7 +214,7 @@ const AdvancedSearch = () => {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <Header />
+      <PublicHeader />
       
       <div className="container mx-auto px-4 py-6">
         <h1 className="text-3xl font-bold text-slate-900 mb-6">Busca de Imóveis</h1>

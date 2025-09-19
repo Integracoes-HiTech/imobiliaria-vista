@@ -42,10 +42,10 @@ const RealtorLogin = () => {
     <div className="min-h-screen bg-gradient-hero flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center space-x-2 text-white hover:text-white/80 transition-colors">
+          <div className="inline-flex items-center space-x-2 text-white">
             <Home className="h-8 w-8" />
-            <span className="text-2xl font-bold">ImovelPro</span>
-          </Link>
+            <span className="text-2xl font-bold">MG Imóveis</span>
+          </div>
         </div>
 
         <Card className="shadow-2xl">

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { useRealtors } from "@/hooks/useSupabaseData";
 import { useToast } from "@/hooks/use-toast";
+import { RealtorService } from "@/services/realtorService";
+import EditRealtorModal from "@/components/modals/EditRealtorModal";
+import ResetPasswordModal from "@/components/modals/ResetPasswordModal";
 import { 
   Plus, 
   Search, 
@@ -15,14 +18,20 @@ import {
   Trophy,
   Phone,
   Mail,
-  MoreHorizontal
+  MoreHorizontal,
+  ArrowLeft,
+  Download
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const RealtorsManager = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const { realtors, loading: realtorsLoading, error: realtorsError } = useRealtors();
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [resetModalOpen, setResetModalOpen] = useState(false);
+  const [selectedRealtor, setSelectedRealtor] = useState<{ id: string; name: string } | null>(null);
+  const { realtors, loading: realtorsLoading, error: realtorsError, refreshRealtors } = useRealtors();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const filteredRealtors = realtors.filter(realtor =>
     realtor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -44,13 +53,165 @@ const RealtorsManager = () => {
   };
 
   const handleToggleRealtorStatus = async (realtorId: string) => {
-    // TODO: Implementar toggle de status no banco usando AuthService.updateUserStatus
     const realtor = realtors.find(r => r.id === realtorId);
-    if (realtor) {
+    if (!realtor) return;
+
+    const isBlocked = realtor.blocked_at !== null;
+    const action = isBlocked ? 'desbloquear' : 'bloquear';
+    
+    if (window.confirm(`Tem certeza que deseja ${action} o corretor "${realtor.name}"?`)) {
+      try {
+        let success: boolean;
+        
+        if (isBlocked) {
+          success = await RealtorService.unblockRealtor(realtorId);
+        } else {
+          success = await RealtorService.blockRealtor(realtorId);
+        }
+        
+        if (success) {
+          toast({
+            title: `Corretor ${action}do`,
+            description: `${realtor.name} foi ${action}do do sistema. A relação com os imóveis foi preservada.`,
+            variant: isBlocked ? "default" : "destructive",
+          });
+          // Recarregar a página para atualizar a lista
+          window.location.reload();
+        } else {
+          throw new Error(`Falha ao ${action} corretor`);
+        }
+      } catch (error) {
+        console.error(`Erro ao ${action} corretor:`, error);
+        toast({
+          title: `Erro ao ${action} corretor`,
+          description: `Ocorreu um erro ao tentar ${action} o corretor. Tente novamente.`,
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const handleViewProfile = (realtorId: string) => {
+    navigate(`/realtor/profile/${realtorId}`);
+  };
+
+  const handleEditRealtor = (realtorId: string, realtorName: string) => {
+    console.log('RealtorsManager - Editando corretor com ID:', realtorId);
+    setSelectedRealtor({ id: realtorId, name: realtorName });
+    setEditModalOpen(true);
+  };
+
+  const handleResetPassword = (realtorId: string, realtorName: string) => {
+    setSelectedRealtor({ id: realtorId, name: realtorName });
+    setResetModalOpen(true);
+  };
+
+  const handleBlockRealtor = async (realtorId: string, realtorName: string) => {
+    if (window.confirm(`Tem certeza que deseja bloquear o corretor "${realtorName}"? O corretor será removido da visualização mas mantido no sistema para preservar o histórico e as relações com os imóveis.`)) {
+      try {
+        const success = await RealtorService.blockRealtor(realtorId);
+        
+        if (success) {
+          toast({
+            title: "Corretor bloqueado",
+            description: `${realtorName} foi bloqueado. A relação com os imóveis foi preservada.`,
+          });
+          // Recarregar a página para atualizar a lista
+          window.location.reload();
+        } else {
+          throw new Error("Falha ao bloquear corretor");
+        }
+      } catch (error) {
+        console.error("Erro ao bloquear corretor:", error);
+        toast({
+          title: "Erro ao bloquear corretor",
+          description: "Ocorreu um erro ao tentar bloquear o corretor. Tente novamente.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const handleExportRealtors = () => {
+    try {
+      if (!filteredRealtors || filteredRealtors.length === 0) {
+        toast({
+          title: "Nenhum dado para exportar",
+          description: "Não há corretores cadastrados para exportar.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Preparar dados para CSV - apenas dados essenciais e formatados
+      const csvData = filteredRealtors.map(realtor => {
+        // Tratar data de cadastro - tentar diferentes campos
+        let cadastroDate = 'Data nao disponivel';
+        if (realtor.created_at) {
+          cadastroDate = new Date(realtor.created_at).toLocaleDateString('pt-BR');
+        } else if (realtor.updated_at) {
+          cadastroDate = new Date(realtor.updated_at).toLocaleDateString('pt-BR');
+        }
+
+        return {
+          'Nome': realtor.name || 'Nome nao informado',
+          'Email': realtor.email || 'Email nao informado',
+          'Telefone': realtor.phone || 'Telefone nao informado',
+          'Status': realtor.isActive ? 'Ativo' : 'Inativo',
+          'Data Nascimento': realtor.birthDate ? new Date(realtor.birthDate).toLocaleDateString('pt-BR') : 'Nao informado',
+          'Total Imoveis': realtor.stats?.total || 0,
+          'Disponiveis': realtor.stats?.available || 0,
+          'Em Negociacao': realtor.stats?.negotiating || 0,
+          'Vendidos': realtor.stats?.sold || 0,
+          'Cadastrado em': cadastroDate
+        };
+      });
+
+      // Converter para CSV com formatação melhorada
+      const headers = Object.keys(csvData[0]);
+      const csvContent = [
+        // Cabeçalho com separador visual
+        'RELATORIO DE CORRETORES - MG IMOVEIS',
+        `Gerado em: ${new Date().toLocaleDateString('pt-BR')} as ${new Date().toLocaleTimeString('pt-BR')}`,
+        `Total de corretores: ${filteredRealtors.length}`,
+        '', // Linha em branco
+        headers.join(';'), // Usar ponto e vírgula para melhor compatibilidade
+        ...csvData.map(row => 
+          headers.map(header => {
+            const value = row[header];
+            // Escapar aspas e ponto e vírgula, remover acentos para compatibilidade
+            const cleanValue = typeof value === 'string' 
+              ? value.normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Remove acentos
+              : value;
+            return typeof cleanValue === 'string' && (cleanValue.includes(';') || cleanValue.includes('"')) 
+              ? `"${cleanValue.replace(/"/g, '""')}"` 
+              : cleanValue;
+          }).join(';')
+        )
+      ].join('\n');
+
+      // Criar e baixar arquivo com BOM para Excel
+      const BOM = '\uFEFF';
+      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `Relatorio_Corretores_MG_Imoveis_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
       toast({
-        title: realtor.isActive ? "Corretor bloqueado" : "Corretor desbloqueado",
-        description: `${realtor.name} foi ${realtor.isActive ? 'bloqueado' : 'desbloqueado'} do sistema.`,
-        variant: realtor.isActive ? "destructive" : "default",
+        title: "Exportação concluída!",
+        description: `Arquivo CSV com ${filteredRealtors.length} corretores foi baixado.`,
+      });
+    } catch (error) {
+      console.error('Erro na exportação:', error);
+      toast({
+        title: "Erro na exportação",
+        description: "Ocorreu um erro ao exportar os dados. Tente novamente.",
+        variant: "destructive",
       });
     }
   };
@@ -72,20 +233,34 @@ const RealtorsManager = () => {
               {filteredRealtors.length} corretores encontrados
             </p>
           </div>
-          <Button asChild>
-            <Link to="/admin/realtors/new">
-              <Plus className="w-4 h-4 mr-2" />
-              Cadastrar Corretor
-            </Link>
-          </Button>
+          <div className="flex gap-3">
+            <Button variant="outline" asChild>
+              <Link to="/admin/dashboard">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Voltar ao Dashboard
+              </Link>
+            </Button>
+            <Button asChild>
+              <Link to="/admin/realtors/new">
+                <Plus className="w-4 h-4 mr-2" />
+                Cadastrar Corretor
+              </Link>
+            </Button>
+          </div>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center">
-              <Users className="w-5 h-5 mr-2 text-primary" />
-              Lista de Corretores
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center">
+                <Users className="w-5 h-5 mr-2 text-primary" />
+                Lista de Corretores
+              </CardTitle>
+              <Button variant="outline" size="sm" onClick={handleExportRealtors}>
+                <Download className="h-4 w-4 mr-2" />
+                Exportar
+              </Button>
+            </div>
             
             {/* Search Bar */}
             <div className="flex items-center space-x-4 pt-4">
@@ -204,20 +379,20 @@ const RealtorsManager = () => {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleViewProfile(realtor.id)}>
                                   Ver Perfil
                                 </DropdownMenuItem>
-                                <DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleEditRealtor(realtor.id, realtor.name)}>
                                   Editar Dados
                                 </DropdownMenuItem>
-                                <DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleResetPassword(realtor.id, realtor.name)}>
                                   Resetar Senha
                                 </DropdownMenuItem>
                                 <DropdownMenuItem 
-                                  className={realtor.isActive ? "text-destructive" : "text-success"}
+                                  className={realtor.blocked_at ? "text-success" : "text-destructive"}
                                   onClick={() => handleToggleRealtorStatus(realtor.id)}
                                 >
-                                  {realtor.isActive ? "Bloquear Corretor" : "Desbloquear Corretor"}
+                                  {realtor.blocked_at ? "Desbloquear Corretor" : "Bloquear Corretor"}
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -249,6 +424,37 @@ const RealtorsManager = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Modals */}
+      {selectedRealtor && (
+        <>
+          <EditRealtorModal
+            isOpen={editModalOpen}
+            onClose={() => {
+              setEditModalOpen(false);
+              setSelectedRealtor(null);
+            }}
+            realtorId={selectedRealtor.id}
+            realtorName={selectedRealtor.name}
+            onSuccess={() => {
+              refreshRealtors();
+            }}
+          />
+          
+          <ResetPasswordModal
+            isOpen={resetModalOpen}
+            onClose={() => {
+              setResetModalOpen(false);
+              setSelectedRealtor(null);
+            }}
+            realtorId={selectedRealtor.id}
+            realtorName={selectedRealtor.name}
+            onSuccess={() => {
+              refreshRealtors();
+            }}
+          />
+        </>
+      )}
     </div>
   );
 };

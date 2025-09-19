@@ -1,14 +1,15 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import Header from "@/components/Header";
+import PublicHeader from "@/components/PublicHeader";
 import Footer from "@/components/Footer";
 import PropertyCard from "@/components/PropertyCard";
+import PropertyImage from "@/components/PropertyImage";
 import PropertyFilters from "@/components/PropertyFilters";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useProperties } from "@/hooks/useSupabaseData";
-import { Search, ArrowRight, Home as HomeIcon, Shield, Award, ChevronLeft, ChevronRight, Filter, Camera, Loader2, Play, Pause, Building, Building2, Store, CheckCircle, FileText, MapPin } from "lucide-react";
+import { Search, ArrowRight, Home as HomeIcon, Shield, Award, ChevronLeft, ChevronRight, Filter, Camera, Loader2, Play, Pause, Building, Building2, Store, CheckCircle, FileText, MapPin, ArrowLeft } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const Home = () => {
@@ -18,8 +19,8 @@ const Home = () => {
   // Buscar propriedades do banco de dados
   const { properties: allProperties, loading: propertiesLoading, error: propertiesError } = useProperties();
   
-  // For non-logged users, show only available properties
-  const availableProperties = user ? allProperties : allProperties.filter(p => p.status === "available");
+  // SEMPRE mostrar apenas propriedades disponíveis no carrossel da página principal
+  const availableProperties = allProperties.filter(p => p.status === "available");
   const [filteredProperties, setFilteredProperties] = useState<typeof availableProperties>([]);
   const [currentCarouselIndex, setCurrentCarouselIndex] = useState(0);
   const [touchStart, setTouchStart] = useState<number | null>(null);
@@ -45,6 +46,10 @@ const Home = () => {
 
   // Estado para carrossel de categorias principais
   const [categoriesCarouselIndex, setCategoriesCarouselIndex] = useState(0);
+
+  // Estados para carrossel de fundo
+  const [backgroundCarouselIndex, setBackgroundCarouselIndex] = useState(0);
+  const [isBackgroundAutoPlaying, setIsBackgroundAutoPlaying] = useState(true);
 
   // Função para realizar busca e redirecionar para Properties
   const handleSearch = () => {
@@ -224,7 +229,7 @@ const Home = () => {
     setIsAutoPlaying(false);
   }, [filteredProperties.length]);
 
-  // Auto-play functionality
+  // Auto-play functionality para carrossel principal
   useEffect(() => {
     if (!isAutoPlaying || filteredProperties.length === 0) return;
 
@@ -237,6 +242,44 @@ const Home = () => {
 
     return () => clearInterval(interval);
   }, [isAutoPlaying, filteredProperties.length]);
+
+  // Auto-play functionality para carrossel de fundo
+  useEffect(() => {
+    if (!isBackgroundAutoPlaying || availableProperties.length === 0) return;
+
+    const interval = setInterval(() => {
+      setBackgroundCarouselIndex((prev) => {
+        return prev < availableProperties.length - 1 ? prev + 1 : 0;
+      });
+    }, 4000); // Change background image every 4 seconds
+
+    return () => clearInterval(interval);
+  }, [isBackgroundAutoPlaying, availableProperties.length]);
+
+  // Funções para navegar no carrossel de fundo
+  const goToPreviousBackground = () => {
+    setBackgroundCarouselIndex((prev) => 
+      prev > 0 ? prev - 1 : availableProperties.length - 1
+    );
+    setIsBackgroundAutoPlaying(false);
+  };
+
+  const goToNextBackground = () => {
+    setBackgroundCarouselIndex((prev) => 
+      prev < availableProperties.length - 1 ? prev + 1 : 0
+    );
+    setIsBackgroundAutoPlaying(false);
+  };
+
+  const goToBackgroundImage = (index: number) => {
+    setBackgroundCarouselIndex(index);
+    setIsBackgroundAutoPlaying(false);
+  };
+
+  // Função para navegar para o imóvel específico
+  const handleBackgroundImageClick = (propertyId: string) => {
+    navigate(`/property/${propertyId}`);
+  };
 
   // Update filtered properties when data loads
   useEffect(() => {
@@ -270,77 +313,159 @@ const Home = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header />
+      <PublicHeader />
       
-      {/* Hero Section */}
-      <section className="bg-gradient-to-br from-primary/10 via-background to-secondary/10 py-20">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h1 className="text-5xl md:text-7xl font-luxury font-bold text-slate-900 mb-6">
-              Encontre o Imóvel dos Seus Sonhos
-            </h1>
-            <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-              A maior plataforma de imóveis do Brasil
-            </p>
-          </div>
-
-          {/* Search Bar */}
-          <div className="max-w-6xl mx-auto">
-            <div className="bg-white rounded-2xl shadow-xl p-6 flex flex-col md:flex-row gap-4 items-center">
-              <div className="flex-1 relative">
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
-                <Input
-                  placeholder="Código, Bairro ou Empreendimento"
-                  className="pl-12 h-14 text-lg border-0 bg-slate-50 focus:bg-white transition-colors"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                />
-              </div>
-              
-              <div className="w-full md:w-64">
-                <Select value={selectedType} onValueChange={setSelectedType}>
-                  <SelectTrigger className="h-14 border-0 bg-slate-50 focus:bg-white transition-colors">
-                    <Filter className="w-5 h-5 mr-2 text-slate-400" />
-                    <SelectValue placeholder="Tipo de imóvel" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os tipos</SelectItem>
-                    <SelectItem value="apartamento">Apartamento</SelectItem>
-                    <SelectItem value="casa">Casa</SelectItem>
-                    <SelectItem value="cobertura">Cobertura</SelectItem>
-                    <SelectItem value="comercial">Comercial</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="w-full md:w-64">
-                <Select value={selectedPriceRange} onValueChange={setSelectedPriceRange}>
-                  <SelectTrigger className="h-14 border-0 bg-slate-50 focus:bg-white transition-colors">
-                    <Camera className="w-5 h-5 mr-2 text-slate-400" />
-                    <SelectValue placeholder="Valor do imóvel" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os valores</SelectItem>
-                    <SelectItem value="0-500000">Até R$ 500.000</SelectItem>
-                    <SelectItem value="500000-1000000">R$ 500.000 - R$ 1.000.000</SelectItem>
-                    <SelectItem value="1000000-2000000">R$ 1.000.000 - R$ 2.000.000</SelectItem>
-                    <SelectItem value="2000000-10000000">Acima de R$ 2.000.000</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <Button 
-                size="lg" 
-                className="h-14 px-8 bg-primary hover:bg-primary/90 font-luxury"
-                onClick={handleSearch}
-              >
-                <Search className="w-5 h-5 mr-2" />
-                Buscar
-              </Button>
+      {/* Hero Section com Carrossel de Fundo */}
+      <section className="relative h-screen overflow-hidden">
+        {/* Carrossel de Fundo */}
+        <div className="absolute inset-0 z-0">
+          {availableProperties.length > 0 ? (
+            <div className="relative w-full h-full">
+              {availableProperties.map((property, index) => (
+                <div
+                  key={`bg-${property.id}-${index}`}
+                  className={`absolute inset-0 transition-opacity duration-1000 ease-in-out cursor-pointer ${
+                    index === backgroundCarouselIndex ? 'opacity-100' : 'opacity-0'
+                  }`}
+                  onClick={() => handleBackgroundImageClick(property.id)}
+                >
+                  <PropertyImage
+                    imageName={property.images[0] || 'property1.jpg'}
+                    alt={property.title}
+                    className="w-full h-full object-cover"
+                  />
+                  {/* Overlay escuro para melhorar legibilidade */}
+                  <div className="absolute inset-0 bg-black/40" />
+                </div>
+              ))}
             </div>
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-primary/20 via-background to-secondary/20" />
+          )}
+        </div>
+
+        {/* Setas de Navegação do Carrossel de Fundo */}
+        {availableProperties.length > 1 && (
+          <>
+            {/* Seta Esquerda */}
+            <button
+              className="absolute left-4 top-1/2 transform -translate-y-1/2 z-20 bg-black/50 hover:bg-black/70 rounded-full p-2 transition-all duration-300"
+              onClick={goToPreviousBackground}
+            >
+              <ArrowLeft className="w-5 h-5 text-white" />
+            </button>
+
+            {/* Seta Direita */}
+            <button
+              className="absolute right-4 top-1/2 transform -translate-y-1/2 z-20 bg-black/50 hover:bg-black/70 rounded-full p-2 transition-all duration-300"
+              onClick={goToNextBackground}
+            >
+              <ArrowRight className="w-5 h-5 text-white" />
+            </button>
+          </>
+        )}
+
+        {/* Conteúdo Principal */}
+        <div className="relative z-10 flex items-center justify-center h-full">
+          <div className="container mx-auto px-4 text-center">
+            <div className="mb-12">
+              <h1 className="text-5xl md:text-7xl font-luxury font-bold text-white mb-6 drop-shadow-lg">
+                Encontre o Imóvel dos Seus Sonhos
+              </h1>
+              <p className="text-xl text-white/90 max-w-2xl mx-auto drop-shadow-md">
+                A maior plataforma de imóveis do Brasil
+              </p>
+            </div>
+
+            {/* Search Bar */}
+            <div className="max-w-6xl mx-auto">
+              <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl p-6 flex flex-col md:flex-row gap-4 items-center">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+                  <Input
+                    placeholder="Código, Bairro ou Empreendimento"
+                    className="pl-12 h-14 text-lg border-0 bg-slate-50 focus:bg-white transition-colors"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                  />
+                </div>
+                
+                <div className="w-full md:w-64">
+                  <Select value={selectedType} onValueChange={setSelectedType}>
+                    <SelectTrigger className="h-14 border-0 bg-slate-50 focus:bg-white transition-colors">
+                      <Filter className="w-5 h-5 mr-2 text-slate-400" />
+                      <SelectValue placeholder="Tipo de imóvel" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os tipos</SelectItem>
+                      <SelectItem value="apartamento">Apartamento</SelectItem>
+                      <SelectItem value="casa">Casa</SelectItem>
+                      <SelectItem value="cobertura">Cobertura</SelectItem>
+                      <SelectItem value="comercial">Comercial</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="w-full md:w-64">
+                  <Select value={selectedPriceRange} onValueChange={setSelectedPriceRange}>
+                    <SelectTrigger className="h-14 border-0 bg-slate-50 focus:bg-white transition-colors">
+                      <Camera className="w-5 h-5 mr-2 text-slate-400" />
+                      <SelectValue placeholder="Valor do imóvel" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os valores</SelectItem>
+                      <SelectItem value="0-500000">Até R$ 500.000</SelectItem>
+                      <SelectItem value="500000-1000000">R$ 500.000 - R$ 1.000.000</SelectItem>
+                      <SelectItem value="1000000-2000000">R$ 1.000.000 - R$ 2.000.000</SelectItem>
+                      <SelectItem value="2000000-10000000">Acima de R$ 2.000.000</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <Button 
+                  size="lg" 
+                  className="h-14 px-8 bg-primary hover:bg-primary/90 font-luxury"
+                  onClick={handleSearch}
+                >
+                  <Search className="w-5 h-5 mr-2" />
+                  Buscar
+                </Button>
+              </div>
+            </div>
+
+            {/* Indicadores do Carrossel de Fundo */}
+            {availableProperties.length > 1 && (
+              <div className="flex items-center justify-center mt-6 gap-2">
+                {availableProperties.slice(0, 5).map((_, index) => (
+                  <button
+                    key={index}
+                    className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                      index === backgroundCarouselIndex
+                        ? 'bg-white'
+                        : 'bg-white/40 hover:bg-white/60'
+                    }`}
+                    onClick={() => goToBackgroundImage(index)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Botão para pausar/reiniciar carrossel */}
+        {availableProperties.length > 1 && (
+          <button
+            className="absolute bottom-8 right-8 z-20 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full p-3 transition-all duration-300"
+            onClick={() => setIsBackgroundAutoPlaying(!isBackgroundAutoPlaying)}
+          >
+            {isBackgroundAutoPlaying ? (
+              <Pause className="w-6 h-6 text-white" />
+            ) : (
+              <Play className="w-6 h-6 text-white" />
+            )}
+          </button>
+        )}
       </section>
 
       {/* Carrossel Principal - Imóveis Disponíveis */}

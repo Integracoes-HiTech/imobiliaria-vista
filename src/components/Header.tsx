@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Menu, X, Home, User, Settings, LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -9,6 +9,7 @@ const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
 
   const isVisitorRoute = ["/", "/property", "/properties"].some(route => 
@@ -18,22 +19,33 @@ const Header = () => {
   const isAdminRoute = location.pathname.startsWith("/admin");
   const isRealtorRoute = location.pathname.startsWith("/realtor");
 
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
+
   return (
     <header className="bg-card shadow-[var(--shadow-card)] sticky top-0 z-50">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
-          <Link to="/" className="flex items-center space-x-2">
-            <Home className="h-8 w-8 text-primary" />
-            <span className="text-xl font-luxury font-bold text-foreground">MG Imóveis</span>
-          </Link>
+          {user ? (
+            // Dashboard - Logo não clicável
+            <div className="flex items-center space-x-2">
+              <Home className="h-8 w-8 text-primary" />
+              <span className="text-xl font-luxury font-bold text-foreground">MG Imóveis</span>
+            </div>
+          ) : (
+            // Área pública - Logo clicável
+            <Link to="/" className="flex items-center space-x-2">
+              <Home className="h-8 w-8 text-primary" />
+              <span className="text-xl font-luxury font-bold text-foreground">MG Imóveis</span>
+            </Link>
+          )}
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-6">
             {user && (
               <>
-                <Link to={user.type === 'admin' ? '/admin/dashboard' : '/realtor/dashboard'} className="text-foreground hover:text-primary transition-colors">
-                  Dashboard
-                </Link>
                 <Link to={user.type === 'admin' ? '/admin/properties' : '/realtor/properties'} className="text-foreground hover:text-primary transition-colors">
                   Imóveis
                 </Link>
@@ -60,7 +72,7 @@ const Header = () => {
                 <span className="text-sm text-muted-foreground">
                   Olá, {user.name}
                 </span>
-                <Button variant="outline" onClick={logout}>
+                <Button variant="outline" onClick={handleLogout}>
                   <LogOut className="w-4 h-4 mr-2" />
                   Sair
                 </Button>
@@ -90,9 +102,6 @@ const Header = () => {
               
               {user && (
                 <>
-                  <Link to={user.type === 'admin' ? '/admin/dashboard' : '/realtor/dashboard'} className="text-foreground hover:text-primary transition-colors">
-                    Dashboard
-                  </Link>
                   <Link to={user.type === 'admin' ? '/admin/properties' : '/realtor/properties'} className="text-foreground hover:text-primary transition-colors">
                     Imóveis
                   </Link>
@@ -103,7 +112,7 @@ const Header = () => {
                   )}
                   <div className="pt-4 border-t border-border">
                     <span className="text-sm text-muted-foreground">Olá, {user.name}</span>
-                    <Button variant="outline" onClick={logout} size="sm" className="mt-2 w-full">
+                    <Button variant="outline" onClick={handleLogout} size="sm" className="mt-2 w-full">
                       <LogOut className="w-4 h-4 mr-2" />
                       Sair
                     </Button>

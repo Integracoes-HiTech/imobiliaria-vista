@@ -50,6 +50,7 @@ export class PropertyService {
             phone
           )
         `)
+        .is('deleted_at', null) // Apenas propriedades não deletadas
         .order('created_at', { ascending: false });
 
       const duration = Date.now() - startTime;
@@ -117,6 +118,7 @@ export class PropertyService {
           )
         `)
         .eq('realtor_id', realtorId)
+        .is('deleted_at', null) // Apenas propriedades não deletadas
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -145,6 +147,7 @@ export class PropertyService {
           )
         `)
         .eq('id', id)
+        .is('deleted_at', null) // Apenas propriedades não deletadas
         .single();
 
       console.log('PropertyService - Resposta do Supabase:', { data, error });
@@ -292,26 +295,83 @@ export class PropertyService {
 
   static async deleteProperty(propertyId: string): Promise<boolean> {
     try {
-      // Primeiro, deletar o histórico de status
-      await supabase
-        .from('property_status_history')
-        .delete()
-        .eq('property_id', propertyId);
-
-      // Depois, deletar a propriedade
+      console.log('PropertyService - Iniciando soft delete da propriedade:', propertyId);
+      
+      // Soft delete: marcar como deletada ao invés de deletar fisicamente
       const { error } = await supabase
         .from('properties')
-        .delete()
-        .eq('id', propertyId);
+        .update({ 
+          deleted_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', propertyId)
+        .is('deleted_at', null); // Apenas se não estiver já deletada
+
+      if (error) {
+        console.error('PropertyService - Erro no soft delete:', error);
+        throw new Error(error.message);
+      }
+
+      console.log('PropertyService - Soft delete realizado com sucesso');
+      return true;
+    } catch (error) {
+      console.error('Erro ao deletar propriedade:', error);
+      return false;
+    }
+  }
+
+  static async restoreProperty(propertyId: string): Promise<boolean> {
+    try {
+      console.log('PropertyService - Restaurando propriedade:', propertyId);
+      
+      // Restaurar propriedade: remover marca de deletada
+      const { error } = await supabase
+        .from('properties')
+        .update({ 
+          deleted_at: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', propertyId)
+        .not('deleted_at', 'is', null); // Apenas se estiver deletada
+
+      if (error) {
+        console.error('PropertyService - Erro ao restaurar:', error);
+        throw new Error(error.message);
+      }
+
+      console.log('PropertyService - Propriedade restaurada com sucesso');
+      return true;
+    } catch (error) {
+      console.error('Erro ao restaurar propriedade:', error);
+      return false;
+    }
+  }
+
+  static async getDeletedProperties(): Promise<Property[]> {
+    try {
+      console.log('PropertyService - Buscando propriedades deletadas');
+      
+      const { data, error } = await supabase
+        .from('properties')
+        .select(`
+          *,
+          users!properties_realtor_id_fkey (
+            id,
+            name,
+            phone
+          )
+        `)
+        .not('deleted_at', 'is', null) // Apenas propriedades deletadas
+        .order('deleted_at', { ascending: false });
 
       if (error) {
         throw new Error(error.message);
       }
 
-      return true;
+      return data.map(this.mapDatabaseToProperty);
     } catch (error) {
-      console.error('Erro ao deletar propriedade:', error);
-      return false;
+      console.error('Erro ao buscar propriedades deletadas:', error);
+      return [];
     }
   }
 
@@ -391,6 +451,7 @@ export class PropertyService {
       internalNotes: data.internal_notes,
       created_at: data.created_at,
       updated_at: data.updated_at,
+      deleted_at: data.deleted_at,
     };
   }
 }

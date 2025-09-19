@@ -19,28 +19,40 @@ import RealtorDashboard from "./pages/realtor/RealtorDashboard";
 import RealtorPropertiesManager from "./pages/realtor/RealtorPropertiesManager";
 import RealtorPropertyForm from "./pages/realtor/RealtorPropertyForm";
 import RealtorResetPassword from "./pages/realtor/RealtorResetPassword";
+import RealtorProfile from "./pages/realtor/RealtorProfile";
+import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import DatabaseTest from "./components/DatabaseTest";
 import LoginTest from "./components/LoginTest";
 import DatabaseDebug from "./components/DatabaseDebug";
+import ImageUploadTest from "./components/ImageUploadTest";
+import BucketTest from "./components/BucketTest";
+import BucketDebug from "./components/BucketDebug";
+import NewBucketTest from "./components/NewBucketTest";
+import ConnectionTest from "./components/ConnectionTest";
 
 const queryClient = new QueryClient();
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <AuthProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <AuthProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/properties" element={<Properties />} />
             <Route path="/property/:id" element={<PropertyDetails />} />
             <Route path="/search" element={<AdvancedSearch />} />
+            <Route path="/login" element={<Login />} />
             <Route path="/test-db" element={<DatabaseTest />} />
-            <Route path="/test-login" element={<LoginTest />} />
             <Route path="/debug-db" element={<DatabaseDebug />} />
+            <Route path="/test-upload" element={<ImageUploadTest />} />
+            <Route path="/test-bucket" element={<BucketTest />} />
+            <Route path="/debug-bucket" element={<BucketDebug />} />
+            <Route path="/test-new-bucket" element={<NewBucketTest />} />
+            <Route path="/test-connection" element={<ConnectionTest />} />
             
             {/* Admin Routes */}
             <Route path="/admin/login" element={<AdminLogin />} />
@@ -58,6 +70,7 @@ const App = () => (
             <Route path="/realtor/properties/new" element={<RealtorPropertyForm />} />
             <Route path="/realtor/properties/edit/:id" element={<RealtorPropertyForm />} />
             <Route path="/realtor/reset-password" element={<RealtorResetPassword />} />
+            <Route path="/realtor/profile/:id" element={<RealtorProfile />} />
             
             {/* Catch-all route */}
             <Route path="*" element={<NotFound />} />

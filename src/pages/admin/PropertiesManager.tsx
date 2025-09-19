@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { useProperties } from "@/hooks/useSupabaseData";
 import { useToast } from "@/hooks/use-toast";
+import { PropertyService } from "@/services/propertyService";
 import { 
   Plus, 
   Search, 
@@ -15,14 +16,15 @@ import {
   Download, 
   Eye,
   Building,
-  MoreHorizontal
+  MoreHorizontal,
+  ArrowLeft
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import PropertyImage from "@/components/PropertyImage";
 
 const PropertiesManager = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const { properties, loading: propertiesLoading, error: propertiesError } = useProperties();
+  const { properties, loading: propertiesLoading, error: propertiesError, refreshProperties } = useProperties();
   const { toast } = useToast();
 
 
@@ -46,14 +48,136 @@ const PropertiesManager = () => {
   };
 
   const handleExport = () => {
-    toast({
-      title: "Exportação iniciada",
-      description: "Os dados estão sendo preparados para download.",
-    });
+    try {
+      if (!properties || properties.length === 0) {
+        toast({
+          title: "Nenhum dado para exportar",
+          description: "Não há imóveis cadastrados para exportar.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Preparar dados para CSV - apenas dados essenciais e formatados
+      const csvData = properties.map(property => {
+        // Debug para verificar dados
+        console.log('Property data for CSV:', {
+          title: property.title,
+          price: property.price,
+          registrationDate: property.registrationDate,
+          created_at: property.created_at,
+          updated_at: property.updated_at
+        });
+
+        // Tratar data de cadastro - tentar diferentes campos
+        let cadastroDate = 'Data nao disponivel';
+        if (property.registrationDate) {
+          cadastroDate = new Date(property.registrationDate).toLocaleDateString('pt-BR');
+        } else if (property.created_at) {
+          cadastroDate = new Date(property.created_at).toLocaleDateString('pt-BR');
+        } else if (property.updated_at) {
+          cadastroDate = new Date(property.updated_at).toLocaleDateString('pt-BR');
+        }
+
+        // Tratar preço - garantir que sempre tenha valor
+        let preco = property.price || 'Preco nao informado';
+        if (preco && !preco.includes('R$')) {
+          preco = `R$ ${preco}`;
+        }
+
+        return {
+          'Imovel': property.title || 'Sem titulo',
+          'Preco': preco,
+          'Status': property.status === 'available' ? 'Disponivel' : 
+                   property.status === 'negotiating' ? 'Em Negociacao' : 'Vendido',
+          'Localizacao': property.location || 'Localizacao nao informada',
+          'Endereco': typeof property.address === 'string' ? property.address : 
+                     property.address ? `${property.address.street || ''}, ${property.address.neighborhood || ''}` : 'Endereco nao informado',
+          'Caracteristicas': `${property.features?.bedrooms || 0} quartos, ${property.features?.bathrooms || 0} banheiros, ${property.features?.area || 0}m²`,
+          'Vagas': property.features?.parking > 0 ? `${property.features.parking} vagas` : 'Sem vaga',
+          'Corretor': property.realtor?.name || 'Corretor nao informado',
+          'Telefone': property.realtor?.phone || 'Telefone nao informado',
+          'Cadastrado em': cadastroDate
+        };
+      });
+
+      // Converter para CSV com formatação melhorada
+      const headers = Object.keys(csvData[0]);
+      const csvContent = [
+        // Cabeçalho com separador visual
+        'RELATORIO DE IMOVEIS - MG IMOVEIS',
+        `Gerado em: ${new Date().toLocaleDateString('pt-BR')} as ${new Date().toLocaleTimeString('pt-BR')}`,
+        `Total de imoveis: ${properties.length}`,
+        '', // Linha em branco
+        headers.join(';'), // Usar ponto e vírgula para melhor compatibilidade
+        ...csvData.map(row => 
+          headers.map(header => {
+            const value = row[header];
+            // Escapar aspas e ponto e vírgula, remover acentos para compatibilidade
+            const cleanValue = typeof value === 'string' 
+              ? value.normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Remove acentos
+              : value;
+            return typeof cleanValue === 'string' && (cleanValue.includes(';') || cleanValue.includes('"')) 
+              ? `"${cleanValue.replace(/"/g, '""')}"` 
+              : cleanValue;
+          }).join(';')
+        )
+      ].join('\n');
+
+      // Criar e baixar arquivo com BOM para Excel
+      const BOM = '\uFEFF';
+      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `Relatorio_Imoveis_MG_Imoveis_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast({
+        title: "Exportação concluída!",
+        description: `Arquivo CSV com ${properties.length} imóveis foi baixado.`,
+      });
+    } catch (error) {
+      console.error('Erro na exportação:', error);
+      toast({
+        title: "Erro na exportação",
+        description: "Ocorreu um erro ao exportar os dados. Tente novamente.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleViewProperty = (id: string) => {
     window.open(`/property/${id}`, '_blank');
+  };
+
+  const handleDeleteProperty = async (propertyId: string, propertyName: string) => {
+    if (window.confirm(`Tem certeza que deseja excluir o imóvel "${propertyName}"? O imóvel será removido da visualização mas mantido no sistema para preservar o histórico.`)) {
+      try {
+        const success = await PropertyService.deleteProperty(propertyId);
+        
+        if (success) {
+          toast({
+            title: "Imóvel excluído",
+            description: `${propertyName} foi removido da lista. A relação com o corretor foi preservada.`,
+          });
+          // Atualizar a lista sem recarregar a página
+          refreshProperties();
+        } else {
+          throw new Error("Falha ao excluir imóvel");
+        }
+      } catch (error) {
+        console.error("Erro ao excluir imóvel:", error);
+        toast({
+          title: "Erro ao excluir imóvel",
+          description: "Ocorreu um erro ao tentar excluir o imóvel. Tente novamente.",
+          variant: "destructive",
+        });
+      }
+    }
   };
 
   return (
@@ -70,12 +194,20 @@ const PropertiesManager = () => {
               {filteredProperties.length} imóveis encontrados
             </p>
           </div>
-          <Button asChild>
-            <Link to="/admin/properties/new">
-              <Plus className="w-4 h-4 mr-2" />
-              Cadastrar Imóvel
-            </Link>
-          </Button>
+          <div className="flex gap-3">
+            <Button variant="outline" asChild>
+              <Link to="/admin/dashboard">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Voltar ao Dashboard
+              </Link>
+            </Button>
+            <Button asChild>
+              <Link to="/admin/properties/new">
+                <Plus className="w-4 h-4 mr-2" />
+                Cadastrar Imóvel
+              </Link>
+            </Button>
+          </div>
         </div>
 
         <Card>
@@ -174,7 +306,10 @@ const PropertiesManager = () => {
                                 Editar
                               </Link>
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive">
+                            <DropdownMenuItem 
+                              className="text-destructive"
+                              onClick={() => handleDeleteProperty(property.id, property.title)}
+                            >
                               Excluir
                             </DropdownMenuItem>
                           </DropdownMenuContent>

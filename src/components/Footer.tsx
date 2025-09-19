@@ -37,31 +37,14 @@ const Footer = () => {
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Links Rápidos</h3>
             <ul className="space-y-2">
-              <li>
-                <Link to="/" className="text-slate-300 hover:text-primary transition-colors text-sm">
-                  Início
-                </Link>
-              </li>
+            
               <li>
                 <Link to="/properties" className="text-slate-300 hover:text-primary transition-colors text-sm">
                   Imóveis Disponíveis
                 </Link>
               </li>
-              <li>
-                <Link to="/search" className="text-slate-300 hover:text-primary transition-colors text-sm">
-                  Busca Avançada
-                </Link>
-              </li>
-              <li>
-                <Link to="/admin/login" className="text-slate-300 hover:text-primary transition-colors text-sm">
-                  Área Administrativa
-                </Link>
-              </li>
-              <li>
-                <Link to="/realtor/login" className="text-slate-300 hover:text-primary transition-colors text-sm">
-                  Área do Corretor
-                </Link>
-              </li>
+          
+            
             </ul>
           </div>
 
@@ -103,7 +86,7 @@ const Footer = () => {
             <div className="space-y-3">
               <div className="flex items-center space-x-3">
                 <Phone className="w-4 h-4 text-primary" />
-                <span className="text-slate-300 text-sm">(11) 99999-9999</span>
+                <span className="text-slate-300 text-sm">(99) 99999-9999</span>
               </div>
               <div className="flex items-center space-x-3">
                 <Mail className="w-4 h-4 text-primary" />
@@ -112,8 +95,8 @@ const Footer = () => {
               <div className="flex items-start space-x-3">
                 <MapPin className="w-4 h-4 text-primary mt-1" />
                 <span className="text-slate-300 text-sm">
-                  Av. Paulista, 1000<br />
-                  São Paulo - SP, 01310-100
+                  Av. Avenida, 1000<br />
+                  Goiânia - GO, 00000-000
                 </span>
               </div>
             </div>

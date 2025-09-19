@@ -6,14 +6,27 @@ export class ImageService {
   // Upload de uma única imagem
   static async uploadImage(file: File, folder: string = 'properties'): Promise<string | null> {
     try {
-      console.log('Iniciando upload da imagem:', file.name, 'Tamanho:', file.size);
+      console.log('🖼️ ImageService - Iniciando upload da imagem:', file.name, 'Tamanho:', file.size);
+      
+      // Validar arquivo antes do upload
+      const validation = this.validateImageFile(file);
+      if (!validation.valid) {
+        console.error('❌ ImageService - Arquivo inválido:', validation.message);
+        throw new Error(validation.message);
+      }
       
       // Modo de desenvolvimento - usar URLs temporárias
       if (this.DEV_MODE) {
-        console.log('Modo de desenvolvimento: usando URL temporária');
+        console.log('🔧 ImageService - Modo de desenvolvimento: usando URL temporária');
         const tempUrl = URL.createObjectURL(file);
-        console.log('URL temporária criada:', tempUrl);
+        console.log('✅ ImageService - URL temporária criada:', tempUrl);
         return tempUrl;
+      }
+      
+      // Verificar se o Supabase está configurado
+      if (!supabase) {
+        console.error('❌ ImageService - Supabase não configurado');
+        throw new Error('Supabase não está configurado');
       }
       
       // Gerar nome único para o arquivo
@@ -21,10 +34,13 @@ export class ImageService {
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
       const filePath = `${folder}/${fileName}`;
       
-      console.log('Caminho do arquivo:', filePath);
+      console.log('📁 ImageService - Caminho do arquivo:', filePath);
+
+      // Pular verificação de bucket e tentar upload diretamente
+      console.log('🔍 ImageService - Tentando upload direto no bucket images...');
 
       // Upload do arquivo
-      console.log('Fazendo upload para Supabase Storage...');
+      console.log('⬆️ ImageService - Fazendo upload para Supabase Storage...');
       const { data, error } = await supabase.storage
         .from('images')
         .upload(filePath, file, {
@@ -33,22 +49,26 @@ export class ImageService {
         });
 
       if (error) {
-        console.error('Erro ao fazer upload da imagem:', error);
+        console.error('❌ ImageService - Erro ao fazer upload da imagem:', error);
+        console.error('❌ ImageService - Detalhes do erro:', {
+          message: error.message,
+          name: error.name
+        });
         throw new Error(`Erro no upload: ${error.message}`);
       }
 
-      console.log('Upload realizado com sucesso:', data);
+      console.log('✅ ImageService - Upload realizado com sucesso:', data);
 
       // Obter URL pública da imagem
       const { data: urlData } = supabase.storage
         .from('images')
         .getPublicUrl(filePath);
       
-      console.log('URL pública gerada:', urlData.publicUrl);
+      console.log('🔗 ImageService - URL pública gerada:', urlData.publicUrl);
 
       return urlData.publicUrl;
     } catch (error) {
-      console.error('Erro no upload da imagem:', error);
+      console.error('❌ ImageService - Erro no upload da imagem:', error);
       return null;
     }
   }

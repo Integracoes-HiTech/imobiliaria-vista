@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import Header from "@/components/Header";
+import PublicHeader from "@/components/PublicHeader";
 import PropertyCard from "@/components/PropertyCard";
 import PropertyFilters from "@/components/PropertyFilters";
 import { useProperties } from "@/hooks/useSupabaseData";
@@ -103,7 +103,7 @@ const Properties = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header />
+      <PublicHeader />
       
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">

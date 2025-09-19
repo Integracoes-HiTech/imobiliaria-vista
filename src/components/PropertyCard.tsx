@@ -2,12 +2,7 @@ import { Link } from "react-router-dom";
 import { MapPin, MessageCircle, Bed, Bath, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-
-// Import das imagens estáticas
-import property1 from "@/assets/property1.jpg";
-import property2 from "@/assets/property2.jpg";
-import property3 from "@/assets/property3.jpg";
-import property4 from "@/assets/property4.jpg";
+import PropertyImage from "@/components/PropertyImage";
 
 interface PropertyCardProps {
   id: string;
@@ -28,40 +23,6 @@ interface PropertyCardProps {
 }
 
 const PropertyCard = ({ id, title, price, location, image, realtor, status, features }: PropertyCardProps) => {
-  // Mapeamento de imagens estáticas
-  const imageMap: { [key: string]: string } = {
-    'property1.jpg': property1,
-    'property2.jpg': property2,
-    'property3.jpg': property3,
-    'property4.jpg': property4,
-  };
-
-  // Função para gerar o caminho correto da imagem
-  const getImageSrc = (imageName: string) => {
-    console.log('Processando imagem:', imageName);
-    
-    // Se já é uma URL completa (Supabase Storage ou externa), retorna como está
-    if (imageName.startsWith('http') || imageName.startsWith('https') || imageName.startsWith('blob:')) {
-      console.log('URL completa detectada:', imageName);
-      return imageName;
-    }
-    
-    // Se é um nome de arquivo conhecido, retorna a imagem importada
-    if (imageMap[imageName]) {
-      console.log('Imagem estática encontrada:', imageName);
-      return imageMap[imageName];
-    }
-    
-    // Se parece ser um caminho do Supabase Storage, retorna como está
-    if (imageName.includes('/') && !imageName.includes('\\')) {
-      console.log('Caminho do Supabase detectado:', imageName);
-      return imageName;
-    }
-    
-    // Fallback para property1 se não encontrar
-    console.log('Usando imagem padrão para:', imageName);
-    return property1;
-  };
 
   const formatWhatsAppLink = (phone: string) => {
     console.log('Phone received:', phone);
@@ -101,14 +62,10 @@ const PropertyCard = ({ id, title, price, location, image, realtor, status, feat
     <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-500 group overflow-hidden transform hover:-translate-y-2">
       <Link to={`/property/${id}`}>
         <div className="relative overflow-hidden">
-          <img
-            src={getImageSrc(image)}
+          <PropertyImage
+            imageName={image}
             alt={title}
             className="w-full h-72 object-cover transition-transform duration-700 group-hover:scale-110"
-            onError={(e) => {
-              // Fallback para imagem padrão se não conseguir carregar
-              (e.target as HTMLImageElement).src = property1;
-            }}
           />
           <div className="absolute top-4 right-4">
             {getStatusBadge(status)}

@@ -18,17 +18,19 @@ export interface MonthlyStats {
 export class DashboardService {
   static async getDashboardStats(): Promise<DashboardStats> {
     try {
-      // Buscar total de corretores ativos
+      // Buscar total de corretores ativos (não bloqueados)
       const { count: totalRealtors } = await supabase
         .from('users')
         .select('*', { count: 'exact', head: true })
         .eq('type', 'realtor')
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .is('blocked_at', null);
 
-      // Buscar estatísticas de propriedades
+      // Buscar estatísticas de propriedades (apenas não deletadas)
       const { data: properties } = await supabase
         .from('properties')
-        .select('status, created_at, updated_at');
+        .select('status, created_at, updated_at')
+        .is('deleted_at', null);
 
       if (!properties) {
         return {
@@ -92,7 +94,8 @@ export class DashboardService {
         .from('users')
         .select('id, name, phone, birth_date, is_active')
         .eq('type', 'realtor')
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .is('blocked_at', null);
 
       if (!realtors) {
         return [];
@@ -104,7 +107,8 @@ export class DashboardService {
           const { data: properties } = await supabase
             .from('properties')
             .select('status')
-            .eq('realtor_id', realtor.id);
+            .eq('realtor_id', realtor.id)
+            .is('deleted_at', null);
 
           const stats = {
             available: 0,
@@ -154,6 +158,7 @@ export class DashboardService {
             phone
           )
         `)
+        .is('deleted_at', null)
         .order('created_at', { ascending: false })
         .limit(limit);
 
@@ -172,7 +177,8 @@ export class DashboardService {
     try {
       const { data: properties } = await supabase
         .from('properties')
-        .select('status, created_at');
+        .select('status, created_at')
+        .is('deleted_at', null);
 
       if (!properties) {
         return [];
@@ -220,7 +226,8 @@ export class DashboardService {
     try {
       const { data, error } = await supabase
         .from('properties')
-        .select('status');
+        .select('status')
+        .is('deleted_at', null);
 
       if (error) {
         throw new Error(error.message);

@@ -63,6 +63,7 @@ const PropertyImage: React.FC<PropertyImageProps> = ({ imageName, alt, className
   React.useEffect(() => {
     const src = getImageSrc(imageName);
     setImageSrc(src);
+    setHasError(false);
     setIsLoading(false);
   }, [imageName]);
 
@@ -82,8 +83,8 @@ const PropertyImage: React.FC<PropertyImageProps> = ({ imageName, alt, className
   // Se ainda está carregando, mostrar placeholder
   if (isLoading) {
     return (
-      <div className={`${className} bg-gray-200 flex items-center justify-center`}>
-        <ImageIcon className="w-6 h-6 text-gray-400" />
+      <div className={`${className} bg-muted flex items-center justify-center animate-pulse`}>
+        <ImageIcon className="w-6 h-6 text-muted-foreground" />
       </div>
     );
   }
@@ -92,9 +93,10 @@ const PropertyImage: React.FC<PropertyImageProps> = ({ imageName, alt, className
     <img
       src={imageSrc}
       alt={alt}
-      className={className}
+      className={`${className} transition-opacity duration-300`}
       onError={handleError}
       onLoad={handleLoad}
+      loading="lazy"
     />
   );
 };

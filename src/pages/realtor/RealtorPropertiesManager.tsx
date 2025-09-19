@@ -26,7 +26,7 @@ const RealtorPropertiesManager = () => {
   const { user } = useAuth();
   
   // Buscar propriedades do corretor logado
-  const { properties: realtorProperties, loading: propertiesLoading, error: propertiesError } = useProperties(user?.id);
+  const { properties: realtorProperties, loading: propertiesLoading, error: propertiesError, refreshProperties } = useProperties(user?.id);
 
   // Debug: mostrar informações do usuário e propriedades
   console.log('RealtorPropertiesManager - Usuário logado:', user);
@@ -60,18 +60,17 @@ const RealtorPropertiesManager = () => {
   };
 
   const handleDeleteProperty = async (propertyId: string, propertyName: string) => {
-    if (window.confirm(`Tem certeza que deseja excluir o imóvel "${propertyName}"? Esta ação não pode ser desfeita.`)) {
+    if (window.confirm(`Tem certeza que deseja excluir o imóvel "${propertyName}"? O imóvel será removido da visualização mas mantido no sistema para preservar o histórico.`)) {
       try {
         const success = await PropertyService.deleteProperty(propertyId);
         
         if (success) {
           toast({
             title: "Imóvel excluído",
-            description: `${propertyName} foi removido da sua carteira.`,
-            variant: "destructive",
+            description: `${propertyName} foi removido da sua carteira. A relação com o corretor foi preservada.`,
           });
-          // Recarregar a página para atualizar a lista
-          window.location.reload();
+          // Atualizar a lista sem recarregar a página
+          refreshProperties();
         } else {
           throw new Error("Falha ao excluir imóvel");
         }

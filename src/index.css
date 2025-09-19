@@ -202,6 +202,21 @@ All colors MUST be HSL.
     animation: slideUp 0.5s ease-out;
   }
 
+  /* Line clamp utilities */
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
   @keyframes fadeIn {
     from {
       opacity: 0;

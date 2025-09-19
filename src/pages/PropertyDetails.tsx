@@ -1,4 +1,5 @@
 import { useParams, Link } from "react-router-dom";
+import PublicHeader from "@/components/PublicHeader";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { useProperty } from "@/hooks/useSupabaseData";
@@ -74,7 +75,7 @@ const PropertyDetails = () => {
   if (propertyLoading) {
     return (
       <div className="min-h-screen bg-background">
-        <Header />
+        {user ? <Header /> : <PublicHeader />}
         <div className="container mx-auto px-4 py-8 text-center">
           <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
           <p className="text-lg text-muted-foreground">Carregando detalhes do imóvel...</p>
@@ -86,13 +87,15 @@ const PropertyDetails = () => {
   if (propertyError || !property) {
     return (
       <div className="min-h-screen bg-background">
-        <Header />
+        {user ? <Header /> : <PublicHeader />}
         <div className="container mx-auto px-4 py-8 text-center">
           <h1 className="text-2xl font-bold text-foreground mb-4">
             {propertyError ? `Erro: ${propertyError}` : 'Imóvel não encontrado'}
           </h1>
           <Button asChild>
-            <Link to="/">Voltar ao Início</Link>
+            <Link to={user ? (user.type === 'admin' ? '/admin/properties' : '/realtor/properties') : '/'}>
+              {user ? 'Voltar à Lista de Imóveis' : 'Voltar ao Início'}
+            </Link>
           </Button>
         </div>
       </div>
@@ -127,11 +130,11 @@ const PropertyDetails = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header />
+      {user ? <Header /> : <PublicHeader />}
       
       <div className="container mx-auto px-4 py-8">
         <Button variant="ghost" asChild className="mb-6">
-          <Link to="/">
+          <Link to={user ? (user.type === 'admin' ? '/admin/properties' : '/realtor/properties') : '/'}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Voltar
           </Link>

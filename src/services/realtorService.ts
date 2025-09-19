@@ -25,6 +25,7 @@ export class RealtorService {
         .from('users')
         .select('*')
         .eq('type', 'realtor')
+        .is('blocked_at', null) // Apenas corretores não bloqueados
         .order('name');
 
       if (error) {
@@ -56,6 +57,7 @@ export class RealtorService {
         .select('*')
         .eq('id', id)
         .eq('type', 'realtor')
+        .is('blocked_at', null) // Apenas corretores não bloqueados
         .single();
 
       if (error) {
@@ -160,31 +162,121 @@ export class RealtorService {
     }
   }
 
-  static async deleteRealtor(realtorId: string): Promise<boolean> {
+  static async blockRealtor(realtorId: string): Promise<boolean> {
     try {
-      // Verificar se o corretor tem propriedades vinculadas
-      const { data: properties } = await supabase
-        .from('properties')
-        .select('id')
-        .eq('realtor_id', realtorId);
-
-      if (properties && properties.length > 0) {
-        throw new Error('Não é possível excluir corretor com propriedades vinculadas');
-      }
-
+      console.log('RealtorService - Iniciando bloqueio do corretor:', realtorId);
+      
+      // Soft delete: marcar como bloqueado ao invés de deletar fisicamente
       const { error } = await supabase
         .from('users')
-        .delete()
+        .update({ 
+          blocked_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
         .eq('id', realtorId)
-        .eq('type', 'realtor');
+        .eq('type', 'realtor')
+        .is('blocked_at', null); // Apenas se não estiver já bloqueado
+
+      if (error) {
+        console.error('RealtorService - Erro no bloqueio:', error);
+        throw new Error(error.message);
+      }
+
+      console.log('RealtorService - Bloqueio realizado com sucesso');
+      return true;
+    } catch (error) {
+      console.error('Erro ao bloquear corretor:', error);
+      throw error;
+    }
+  }
+
+  static async unblockRealtor(realtorId: string): Promise<boolean> {
+    try {
+      console.log('RealtorService - Desbloqueando corretor:', realtorId);
+      
+      // Desbloquear corretor: remover marca de bloqueado
+      const { error } = await supabase
+        .from('users')
+        .update({ 
+          blocked_at: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', realtorId)
+        .eq('type', 'realtor')
+        .not('blocked_at', 'is', null); // Apenas se estiver bloqueado
+
+      if (error) {
+        console.error('RealtorService - Erro ao desbloquear:', error);
+        throw new Error(error.message);
+      }
+
+      console.log('RealtorService - Corretor desbloqueado com sucesso');
+      return true;
+    } catch (error) {
+      console.error('Erro ao desbloquear corretor:', error);
+      throw error;
+    }
+  }
+
+  static async getBlockedRealtors(): Promise<Realtor[]> {
+    try {
+      console.log('RealtorService - Buscando corretores bloqueados');
+      
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('type', 'realtor')
+        .not('blocked_at', 'is', null) // Apenas corretores bloqueados
+        .order('blocked_at', { ascending: false });
 
       if (error) {
         throw new Error(error.message);
       }
 
+      // Buscar estatísticas de cada corretor bloqueado
+      const realtorsWithStats = await Promise.all(
+        data.map(async (realtor) => {
+          const stats = await this.getRealtorStats(realtor.id);
+          return {
+            ...realtor,
+            stats,
+          };
+        })
+      );
+
+      return realtorsWithStats.map(this.mapDatabaseToRealtor);
+    } catch (error) {
+      console.error('Erro ao buscar corretores bloqueados:', error);
+      return [];
+    }
+  }
+
+  static async resetPassword(realtorId: string, newPassword: string): Promise<boolean> {
+    try {
+      console.log('RealtorService - Resetando senha do corretor:', realtorId);
+      
+      // Hash da nova senha
+      const passwordHash = await this.hashPassword(newPassword);
+      
+      // Atualizar senha no banco
+      const { error } = await supabase
+        .from('users')
+        .update({ 
+          password_hash: passwordHash,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', realtorId)
+        .eq('type', 'realtor');
+
+      if (error) {
+        console.error('RealtorService - Erro ao resetar senha:', error);
+        throw new Error(error.message);
+      }
+
+      console.log('RealtorService - Senha resetada com sucesso');
       return true;
     } catch (error) {
-      console.error('Erro ao deletar corretor:', error);
+      console.error('Erro ao resetar senha:', error);
       throw error;
     }
   }
@@ -265,6 +357,7 @@ export class RealtorService {
       email: data.email,
       phone: data.phone,
       birthDate: data.birth_date,
+      type: data.type || 'realtor',
       isActive: data.is_active,
       stats: data.stats || {
         available: 0,
@@ -272,6 +365,7 @@ export class RealtorService {
         sold: 0,
         total: 0,
       },
+      blocked_at: data.blocked_at,
     };
   }
 }

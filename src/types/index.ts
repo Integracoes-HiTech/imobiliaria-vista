@@ -33,6 +33,7 @@ export interface Property {
   statusHistory?: PropertyStatusHistory[];
   created_at?: string;
   updated_at?: string;
+  deleted_at?: string;
 }
 
 export interface Realtor {
@@ -51,6 +52,7 @@ export interface Realtor {
   };
   created_at?: string;
   updated_at?: string;
+  blocked_at?: string;
 }
 
 export interface PropertyStatusHistory {

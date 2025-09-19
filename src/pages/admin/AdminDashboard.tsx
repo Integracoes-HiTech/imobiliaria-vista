@@ -15,12 +15,202 @@ import {
   Loader2
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 
 const AdminDashboard = () => {
+  const { toast } = useToast();
+  
   // Buscar dados do banco
   const { stats, loading: statsLoading, error: statsError } = useDashboardStats();
   const { ranking: topRealtors, loading: rankingLoading, error: rankingError } = useRealtorRanking();
   const { properties: recentProperties, loading: propertiesLoading, error: propertiesError } = useProperties();
+
+  const handleExportProperties = () => {
+    try {
+      if (!recentProperties || recentProperties.length === 0) {
+        toast({
+          title: "Nenhum dado para exportar",
+          description: "Não há imóveis cadastrados para exportar.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Preparar dados para CSV - apenas dados essenciais e formatados
+      const csvData = recentProperties.map(property => {
+        // Debug para verificar dados
+        console.log('Property data for CSV:', {
+          title: property.title,
+          price: property.price,
+          registrationDate: property.registrationDate,
+          created_at: property.created_at,
+          updated_at: property.updated_at
+        });
+
+        // Tratar data de cadastro - tentar diferentes campos
+        let cadastroDate = 'Data nao disponivel';
+        if (property.registrationDate) {
+          cadastroDate = new Date(property.registrationDate).toLocaleDateString('pt-BR');
+        } else if (property.created_at) {
+          cadastroDate = new Date(property.created_at).toLocaleDateString('pt-BR');
+        } else if (property.updated_at) {
+          cadastroDate = new Date(property.updated_at).toLocaleDateString('pt-BR');
+        }
+
+        // Tratar preço - garantir que sempre tenha valor
+        let preco = property.price || 'Preco nao informado';
+        if (preco && !preco.includes('R$')) {
+          preco = `R$ ${preco}`;
+        }
+
+        return {
+          'Imovel': property.title || 'Sem titulo',
+          'Preco': preco,
+          'Status': property.status === 'available' ? 'Disponivel' : 
+                   property.status === 'negotiating' ? 'Em Negociacao' : 'Vendido',
+          'Localizacao': property.location || 'Localizacao nao informada',
+          'Endereco': typeof property.address === 'string' ? property.address : 
+                     property.address ? `${property.address.street || ''}, ${property.address.neighborhood || ''}` : 'Endereco nao informado',
+          'Caracteristicas': `${property.features?.bedrooms || 0} quartos, ${property.features?.bathrooms || 0} banheiros, ${property.features?.area || 0}m²`,
+          'Vagas': property.features?.parking > 0 ? `${property.features.parking} vagas` : 'Sem vaga',
+          'Corretor': property.realtor?.name || 'Corretor nao informado',
+          'Telefone': property.realtor?.phone || 'Telefone nao informado',
+          'Cadastrado em': cadastroDate
+        };
+      });
+
+      // Converter para CSV com formatação melhorada
+      const headers = Object.keys(csvData[0]);
+      const csvContent = [
+        // Cabeçalho com separador visual
+        'RELATORIO DE IMOVEIS - MG IMOVEIS',
+        `Gerado em: ${new Date().toLocaleDateString('pt-BR')} as ${new Date().toLocaleTimeString('pt-BR')}`,
+        `Total de imoveis: ${recentProperties.length}`,
+        '', // Linha em branco
+        headers.join(';'), // Usar ponto e vírgula para melhor compatibilidade
+        ...csvData.map(row => 
+          headers.map(header => {
+            const value = row[header];
+            // Escapar aspas e ponto e vírgula, remover acentos para compatibilidade
+            const cleanValue = typeof value === 'string' 
+              ? value.normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Remove acentos
+              : value;
+            return typeof cleanValue === 'string' && (cleanValue.includes(';') || cleanValue.includes('"')) 
+              ? `"${cleanValue.replace(/"/g, '""')}"` 
+              : cleanValue;
+          }).join(';')
+        )
+      ].join('\n');
+
+      // Criar e baixar arquivo com BOM para Excel
+      const BOM = '\uFEFF';
+      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `Relatorio_Imoveis_MG_Imoveis_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast({
+        title: "Exportação concluída!",
+        description: `Arquivo CSV com ${recentProperties.length} imóveis foi baixado.`,
+      });
+    } catch (error) {
+      console.error('Erro na exportação:', error);
+      toast({
+        title: "Erro na exportação",
+        description: "Ocorreu um erro ao exportar os dados. Tente novamente.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleExportRealtors = () => {
+    try {
+      if (!topRealtors || topRealtors.length === 0) {
+        toast({
+          title: "Nenhum dado para exportar",
+          description: "Não há corretores cadastrados para exportar.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Preparar dados para CSV - apenas dados essenciais e formatados
+      const csvData = topRealtors.map(realtor => {
+        // Tratar data de cadastro - tentar diferentes campos
+        let cadastroDate = 'Data nao disponivel';
+        if (realtor.created_at) {
+          cadastroDate = new Date(realtor.created_at).toLocaleDateString('pt-BR');
+        } else if (realtor.updated_at) {
+          cadastroDate = new Date(realtor.updated_at).toLocaleDateString('pt-BR');
+        }
+
+        return {
+          'Nome': realtor.name || 'Nome nao informado',
+          'Email': realtor.email || 'Email nao informado',
+          'Telefone': realtor.phone || 'Telefone nao informado',
+          'Status': realtor.is_active ? 'Ativo' : 'Inativo',
+          'Data Nascimento': realtor.birth_date ? new Date(realtor.birth_date).toLocaleDateString('pt-BR') : 'Nao informado',
+          'Total Imoveis': realtor.stats?.total || 0,
+          'Disponiveis': realtor.stats?.available || 0,
+          'Em Negociacao': realtor.stats?.negotiating || 0,
+          'Vendidos': realtor.stats?.sold || 0,
+          'Cadastrado em': cadastroDate
+        };
+      });
+
+      // Converter para CSV com formatação melhorada
+      const headers = Object.keys(csvData[0]);
+      const csvContent = [
+        // Cabeçalho com separador visual
+        'RELATORIO DE CORRETORES - MG IMOVEIS',
+        `Gerado em: ${new Date().toLocaleDateString('pt-BR')} as ${new Date().toLocaleTimeString('pt-BR')}`,
+        `Total de corretores: ${topRealtors.length}`,
+        '', // Linha em branco
+        headers.join(';'), // Usar ponto e vírgula para melhor compatibilidade
+        ...csvData.map(row => 
+          headers.map(header => {
+            const value = row[header];
+            // Escapar aspas e ponto e vírgula, remover acentos para compatibilidade
+            const cleanValue = typeof value === 'string' 
+              ? value.normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Remove acentos
+              : value;
+            return typeof cleanValue === 'string' && (cleanValue.includes(';') || cleanValue.includes('"')) 
+              ? `"${cleanValue.replace(/"/g, '""')}"` 
+              : cleanValue;
+          }).join(';')
+        )
+      ].join('\n');
+
+      // Criar e baixar arquivo com BOM para Excel
+      const BOM = '\uFEFF';
+      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `Relatorio_Corretores_MG_Imoveis_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast({
+        title: "Exportação concluída!",
+        description: `Arquivo CSV com ${topRealtors.length} corretores foi baixado.`,
+      });
+    } catch (error) {
+      console.error('Erro na exportação:', error);
+      toast({
+        title: "Erro na exportação",
+        description: "Ocorreu um erro ao exportar os dados. Tente novamente.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -115,7 +305,7 @@ const AdminDashboard = () => {
                   <Calendar className="h-5 w-5 text-primary" />
                   <CardTitle>Lista Detalhada de Imóveis</CardTitle>
                 </div>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" onClick={handleExportProperties}>
                   <Download className="h-4 w-4 mr-2" />
                   Exportar
                 </Button>
@@ -188,9 +378,15 @@ const AdminDashboard = () => {
           {/* Detailed Realtors List */}
           <Card>
             <CardHeader>
-              <div className="flex items-center space-x-2">
-                <BarChart3 className="h-5 w-5 text-primary" />
-                <CardTitle>Lista Detalhada de Corretores</CardTitle>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <BarChart3 className="h-5 w-5 text-primary" />
+                  <CardTitle>Lista Detalhada de Corretores</CardTitle>
+                </div>
+                <Button variant="outline" size="sm" onClick={handleExportRealtors}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Exportar
+                </Button>
               </div>
               <CardDescription>
                 Ranking por total de imóveis vendidos
@@ -246,7 +442,7 @@ const AdminDashboard = () => {
                       </div>
                     </div>
                     <Button variant="ghost" size="sm" asChild>
-                      <Link to={`/admin/realtors/${realtor.id}`}>
+                      <Link to={`/realtor/profile/${realtor.id}`}>
                         <Eye className="h-4 w-4" />
                       </Link>
                     </Button>

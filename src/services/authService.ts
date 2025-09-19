@@ -18,6 +18,8 @@ export interface CreateUserData {
 export class AuthService {
   static async login(credentials: LoginCredentials): Promise<User | null> {
     try {
+      console.log('AuthService - Iniciando login para:', credentials.email);
+      
       // Buscar usuário por email
       const { data: userData, error } = await supabase
         .from('users')
@@ -26,22 +28,39 @@ export class AuthService {
         .eq('is_active', true)
         .single();
 
-      if (error || !userData) {
+      console.log('AuthService - Resultado da busca:', { userData, error });
+
+      if (error) {
+        console.log('AuthService - Erro na busca:', error.message);
         return null;
       }
 
-      // Em um sistema real, você verificaria a senha com hash
-      // Por enquanto, vamos simular a verificação
+      if (!userData) {
+        console.log('AuthService - Usuário não encontrado ou inativo');
+        return null;
+      }
+
+      console.log('AuthService - Usuário encontrado:', { 
+        id: userData.id, 
+        name: userData.name, 
+        email: userData.email,
+        type: userData.type,
+        is_active: userData.is_active 
+      });
+
+      // Verificar senha
       const isValidPassword = await this.verifyPassword(credentials.password, userData.password_hash);
+      console.log('AuthService - Senha válida:', isValidPassword);
       
       if (!isValidPassword) {
+        console.log('AuthService - Senha incorreta');
         return null;
       }
 
       // Retornar dados do usuário sem a senha
       const { password_hash, ...userWithoutPassword } = userData;
       
-      return {
+      const userResult = {
         id: userData.id,
         name: userData.name,
         email: userData.email,
@@ -50,8 +69,11 @@ export class AuthService {
         type: userData.type,
         isActive: userData.is_active,
       };
+
+      console.log('AuthService - Login bem-sucedido, retornando usuário:', userResult);
+      return userResult;
     } catch (error) {
-      console.error('Erro no login:', error);
+      console.error('AuthService - Erro no login:', error);
       return null;
     }
   }

@@ -256,6 +256,22 @@ const RealtorDashboard = () => {
                 </Button>
 
                 <Button variant="outline" asChild className="justify-start h-auto p-4">
+                  <Link to={`/realtor/profile/${user.id}`}>
+                    <div className="flex items-center space-x-3">
+                      <div className="bg-muted p-2 rounded-lg">
+                        <Home className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                      <div className="text-left">
+                        <div className="font-medium">Ver Meu Perfil</div>
+                        <div className="text-sm text-muted-foreground">
+                          Visualize suas informações e estatísticas
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                </Button>
+
+                <Button variant="outline" asChild className="justify-start h-auto p-4">
                   <Link to="/realtor/reset-password">
                     <div className="flex items-center space-x-3">
                       <div className="bg-muted p-2 rounded-lg">

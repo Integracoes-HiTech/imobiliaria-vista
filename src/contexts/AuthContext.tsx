@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AuthService } from '@/services/authService';
 
 export interface User {
@@ -19,7 +20,7 @@ export interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<{ success: boolean; user?: User; error?: string }>;
   logout: () => void;
   isLoading: boolean;
 }
@@ -41,25 +42,29 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsLoading(false);
   }, []);
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string): Promise<{ success: boolean; user?: User; error?: string }> => {
     setIsLoading(true);
     
     try {
+      console.log('AuthContext - Tentando login com:', { email });
+      
       const user = await AuthService.login({ email, password });
       
       if (user) {
+        console.log('AuthContext - Login bem-sucedido:', user);
         setUser(user);
         localStorage.setItem('mg-imoveis-user', JSON.stringify(user));
         setIsLoading(false);
-        return true;
+        return { success: true, user };
       }
       
+      console.log('AuthContext - Login falhou: usuário não encontrado ou senha incorreta');
       setIsLoading(false);
-      return false;
+      return { success: false, error: 'Email ou senha incorretos' };
     } catch (error) {
       console.error('Erro no login:', error);
       setIsLoading(false);
-      return false;
+      return { success: false, error: 'Erro interno. Tente novamente.' };
     }
   };
 
